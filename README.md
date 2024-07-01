@@ -14,9 +14,14 @@ resident of the host economy (European Commission).
 
 ### Data download
 
-The data needed for the project is composed of the three remittances datasets 
-made available by [KNOMAD](https://www.knomad.org/data/remittances): country inflows,
+The data needed for the project is composed of 
+1) the three remittances datasets made available by [KNOMAD](https://www.knomad.org/data/remittances): country inflows,
 country outflows, and a bilateral remittances matrix.
+2) migration stock data from the [World Bank](https://data.worldbank.org/indicator/SM.POP.TOTL)
+3) GDP deflator data from the [World Bank](https://data.worldbank.org/indicator/NY.GDP.DEFL.ZS?locations=US)
 
-These are automatically downloaded by the script [data_download.py](https://github.com/AndreaVisma/csh_remittances/blob/main/data_download.py) 
-into the _.data_ folder.
+**To download the data run the following command in the python terminal**:
+``python data_downloads\\download_all.py``
+
+### Plots
+
