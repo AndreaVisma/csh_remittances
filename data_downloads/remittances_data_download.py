@@ -32,7 +32,7 @@ response = requests.get(url_outflows)
 if response.ok:
     with open(data_folder + "outward-remittance-flows-2024.xlsx", mode="wb") as file:
         file.write(response.content)
-    print(f"Remittances inflow data saved at {data_folder + 'outward-remittance-flows-2024.xlsx'}")
+    print(f"Remittances outflow data saved at {data_folder + 'outward-remittance-flows-2024.xlsx'}")
 else:
     print("Something went wrong in the remittances outflow data download!")
 
@@ -42,6 +42,6 @@ response = requests.get(url_matrix)
 if response.ok:
     with open(data_folder + "bilateral_remittance_matrix_2021.xlsx", mode="wb") as file:
         file.write(response.content)
-    print(f"Remittances inflow data saved at {data_folder + 'bilateral_remittance_matrix_2021.xlsx'}")
+    print(f"Remittances matrix data saved at {data_folder + 'bilateral_remittance_matrix_2021.xlsx'}")
 else:
     print("Something went wrong in the remittances matrix data download!")
