@@ -1,5 +1,5 @@
 """
-Script: data_download.py
+Script: remittances_data_download.py
 Author: Andrea Vismara
 Date: 01/07/2024
 Description: downloads remittances data from the KNOMAD website (https://www.knomad.org/data/remittances)
@@ -9,7 +9,7 @@ import os
 import requests
 
 # set the data folder. You might want to check the current working directory
-data_folder = os.getcwd() + "\\data\\"
+data_folder = os.getcwd() + "\\data_downloads\\data\\"
 
 # store the URLs for the three files to download
 url_inflows = "https://www.knomad.org/sites/default/files/2024-06/inward-remittance-flows-brief-40-june-2024_1.xlsx"
