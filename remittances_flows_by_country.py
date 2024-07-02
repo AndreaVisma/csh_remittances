@@ -2,7 +2,7 @@
 Script: remittances_data_download.py
 Author: Andrea Vismara
 Date: 01/07/2024
-Description: downloads remittances data from the KNOMAD website (https://www.knomad.org/data/remittances)
+Description:
 """
 
 import os
