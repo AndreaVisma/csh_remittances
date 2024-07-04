@@ -174,6 +174,8 @@ def plot_outflows_migrants_by_year(no_USA = False):
                           (df_copy.outflow.notna()) &
                           (df_copy.migrants_hosted.notna())].copy()
 
+        # df_year['migrants_hosted'] = df_year['migrants_hosted'].apply(lambda x: np.log(x))
+        # df_year['outflow'] = df_year['outflow'].apply(lambda x: np.log(x))
         # regression
         x = df_year['migrants_hosted'].to_numpy().reshape(-1, 1) / 1_000_000
         y = df_year['outflow'].to_numpy() / 1000
@@ -202,6 +204,8 @@ def plot_outflows_migrants_by_year(no_USA = False):
                                  line=dict(color="red"),
                                  name=f"{year}: fitted line"
                                  ))
+    fig.update_xaxes(type="log")
+    fig.update_yaxes(type="log")
     fig.update_layout(title=f"Migrant population hosted vs. remittances sent {label}")
     fig.update_xaxes(title="Total migrant population hosted (mln people, 2015)")
     fig.update_yaxes(title="Sent remittances (bn USD, 2021)")
