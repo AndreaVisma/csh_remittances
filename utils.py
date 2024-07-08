@@ -1,6 +1,20 @@
 import plotly.graph_objects as go
 import numpy as np
 from numpy import pi, sin, cos
+import re
+import json
+
+dict_names = {}
+with open('c:\\data\\general\\countries_dict.txt',
+          encoding='utf-8') as f:
+    data = f.read()
+js = json.loads(data)
+for k,v in js.items():
+    for x in v:
+        dict_names[x] = k
+def clean_country_series(series):
+    series = series.map(dict_names)
+    return series
 
 def point_sphere(lon, lat):
     #associate the cartesian coords (x, y, z) to a point on the  globe of given lon and lat
@@ -38,19 +52,8 @@ def shortest_path(A=[100, 45], B=[-50, -25], dir=-1, n=100):
         lats = 180*np.arctan(pts[:, 2]/np.sqrt(pts[:, 0]**2+pts[:,1]**2))/pi
         return lons, lats
 
-dict_names = {'Bahamas, The' : 'The Bahamas',
- 'Congo, Dem. Rep.' : 'Democratic Republic of the Congo',
- "Cote d'Ivoire" : 'Ivory Coast',
- 'Czech Republic' : 'Czechia',
- 'Egypt, Arab Rep.' : 'Egypt',
- 'Eswatini' : 'eSwatini',
- 'Gambia, The' : 'Gambia',
- 'Korea, Dem. Rep.' : 'North Korea',
- 'Korea, Rep.' : 'South Korea',
- 'Kyrgyz Republic' : 'Kyrgyzstan',
- 'Russian Federation' : 'Russia',
- 'Serbia' : 'Republic of Serbia',
- 'Syrian Arab Republic' : 'Syria',
- 'United States' : 'United States of America',
- 'Venezuela, RB' : 'Venezuela',
- 'West Bank and Gaza' : 'Palestine'}
+def remove_asterisc(x):
+    x = re.sub(r"[*]", '', x)
+    x = re.sub("   ", "", x)
+    return x
+
