@@ -16,7 +16,6 @@ from tqdm import tqdm
 import os
 import plotly.io as pio
 pio.renderers.default = "browser"
-from sklearn.linear_model import LinearRegression
 
 from utils import *
 
