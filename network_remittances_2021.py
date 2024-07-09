@@ -33,6 +33,17 @@ df.loc[df.sending_country.isin([x for x in dict_names.keys()]), "sending_country
 df.loc[df.receiving_country.isin([x for x in dict_names.keys()]), "receiving_country"] = df.loc[
     df.receiving_country.isin([x for x in dict_names.keys()]), "receiving_country"].map(dict_names)
 
+###########
+## print some stats
+###########
+print(f"""Total remittances in 2021: {round(df["mln_remittances"].sum() / 2_000, 2)} bn USD""")
+
+print("================================")
+print("Remittances flows for")
+for country in df.receiving_country.unique():
+    print(f"""{country} || in: {round(df[df.receiving_country == country]["mln_remittances"].sum() / 1_000, 2)} bn USD; out: {round(df[df.sending_country == country]["mln_remittances"].sum() / 1_000, 2)} bn USD""")
+
+##################
 world = gpd.read_file("C:\\Data\\geo\\admin_0\\ne_110m_admin_0_countries.shp")[["ADMIN", "geometry"]]
 world.geometry = world.geometry.representative_point()
 world['lon'] = world.geometry.x
