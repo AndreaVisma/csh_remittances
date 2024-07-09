@@ -52,6 +52,19 @@ df_all['destination'] = clean_country_series(df_all['destination'])
 df_all.dropna(inplace = True)
 
 ###########
+## print some stats
+###########
+
+years = df_all.columns[2:].tolist()
+print("Global migrants in")
+for year in years:
+    print(f"""{year}: {round(df_all[year].sum() / 1e6, 2)} mln""")
+
+print("================================")
+print("Migrants in Austria in")
+for year in years:
+    print(f"""{year}: {round(df_all[df_all.destination == "Austria"][year].sum() / 1e6, 2)} mln""")
+###########
 # define plotting functions
 ##########
 
