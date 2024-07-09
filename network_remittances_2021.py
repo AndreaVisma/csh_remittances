@@ -28,10 +28,8 @@ df.rename(columns = {df.columns[0]: "sending_country"}, inplace = True)
 df = pd.melt(df, id_vars=['sending_country'], value_vars=df.columns.tolist()[1:])
 df.dropna(inplace = True)
 df.rename(columns = {"variable" : "receiving_country", "value" : "mln_remittances"}, inplace = True)
-df.loc[df.sending_country.isin([x for x in dict_names.keys()]), "sending_country"] = df.loc[
-    df.sending_country.isin([x for x in dict_names.keys()]), "sending_country"].map(dict_names)
-df.loc[df.receiving_country.isin([x for x in dict_names.keys()]), "receiving_country"] = df.loc[
-    df.receiving_country.isin([x for x in dict_names.keys()]), "receiving_country"].map(dict_names)
+df["sending_country"] = clean_country_series(df["sending_country"])
+df["receiving_country"] = clean_country_series(df["receiving_country"])
 
 ###########
 ## print some stats
@@ -48,6 +46,7 @@ world = gpd.read_file("C:\\Data\\geo\\admin_0\\ne_110m_admin_0_countries.shp")[[
 world.geometry = world.geometry.representative_point()
 world['lon'] = world.geometry.x
 world['lat'] = world.geometry.y
+world["ADMIN"] = clean_country_series(world["ADMIN"])
 
 df = df.merge(world[["ADMIN", "lat", "lon"]], left_on="sending_country", right_on="ADMIN", how="inner")
 df.rename(columns = {"lat" : "lat_start", "lon" : "lon_start"}, inplace = True)
@@ -154,6 +153,78 @@ def plot_country(country):
 plot_country("Austria")
 plot_country("Mexico")
 plot_country("Germany")
+
+
+########
+# Sankey charts
+########
+
+def inflows_outflows_country_sankey(country, show = False):
+
+    try:
+        os.mkdir(os.getcwd() + f"\\plots\\country_flows\\{country}")
+        out = os.getcwd() + f"\\plots\\country_flows\\{country}\\"
+    except:
+        out = os.getcwd() + f"\\plots\\country_flows\\{country}\\"
+
+    df.sort_values("mln_remittances", ascending = False, inplace = True)
+
+    #country as origin
+    df_or = df[df.sending_country == country].copy()
+    labels = df_or.receiving_country.to_list()
+    labels.append(country)
+    source = [labels.index(country)] * len(df_or)
+    target = [x for x in range(len(df_or))]
+    value = df_or["mln_remittances"].to_list()
+
+    fig = go.Figure(data=[go.Sankey(
+        node=dict(
+            pad=15,
+            thickness=20,
+            line=dict(color="black", width=0.5),
+            label=labels,
+            # color="blue"
+        ),
+        link=dict(
+            source=source,
+            target=target,
+            value=value
+        ))])
+
+    fig.update_layout(title_text=f"Outflow of remittances from {country} in 2021 (mln USD)", font_size=10)
+    fig.write_html(out + f"out_remittances_2021.html")
+    if show:
+        fig.show()
+
+    # country as destination
+    df_dest = df[df.receiving_country == country].copy()
+    labels = df_dest.sending_country.to_list()
+    labels.append(country)
+    target = [labels.index(country)] * len(df_dest)
+    source = [x for x in range(len(df_dest))]
+    value = df_dest["mln_remittances"].to_list()
+
+    fig = go.Figure(data=[go.Sankey(
+        node=dict(
+            pad=15,
+            thickness=20,
+            line=dict(color="black", width=0.5),
+            label=labels,
+            # color="red"
+        ),
+        link=dict(
+            source=source,
+            target=target,
+            value=value
+        ))])
+
+    fig.update_layout(title_text=f"Inflow of remittances in {country} in 2021 (mln USD)", font_size=10)
+    fig.write_html(out + f"inflow_remittances_2021.html")
+    if show:
+        fig.show()
+
+for country in tqdm(df.sending_country.unique(), total = len(df.sending_country.unique()), position=0, leave=True, colour='green', ncols = 80):
+    inflows_outflows_country_sankey(country)
 
 #########################
 # networks stuff
