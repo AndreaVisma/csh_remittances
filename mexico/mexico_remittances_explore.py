@@ -28,6 +28,7 @@ names_column = ["date",
                 "total_mean_op", "money_orders_mean_op", "checks_mean_op", "electronic_transfers_mean_op", "cash_goods_mean_op"]
 dict_columns = dict(zip(df.columns,names_column))
 df.rename(columns = dict_columns, inplace = True)
+df.to_excel("c:\\data\\remittances\\mexico\\remittances_renamed.xlsx", index = False)
 
 ##plot time series for every column
 if plot_series:
@@ -41,6 +42,8 @@ if plot_series:
         fig.add_trace(go.Scatter(x=df.date, y=y, fill='tonexty',
                                  mode = "markers+lines", name = col))  # fill down to xaxis
         past_values = y
+    fig.add_trace(go.Scatter(x=df.date, y=df.total_mln,
+                                 mode = "lines", name = "total", line= dict(color = 'pink')))
     fig.update_layout(title = "Total remittances sent by type of transfer")
     fig.update_yaxes(title = "Mln of US Dollars")
     fig.write_html(out_folder + "total_remittances_by_type_line.html")
