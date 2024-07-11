@@ -11,6 +11,7 @@ import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
 from tqdm import tqdm
+from plotly.subplots import make_subplots
 import plotly.io as pio
 pio.renderers.default = "browser"
 
@@ -102,3 +103,51 @@ if plot_series:
 ##########################
 # load the disaster data
 ##########################
+
+emdat = pd.read_excel("c:\\data\\natural_disasters\\emdat_2024_07_all.xlsx")
+emdat = emdat[(emdat.Country == "Mexico") &
+              (~emdat["Total Affected"].isna()) &
+              (emdat["Disaster Group"] == "Natural") &
+              (emdat["Start Year"] >= 1995)].copy()
+emdat.sort_values("Total Affected", ascending = False, inplace = True)
+
+emdat['Disaster Type'].value_counts()
+
+## data for high intensity events
+emdat_high_aff = emdat[emdat["Total Affected"] >= 50_000]
+emdat_high_aff = emdat_high_aff[['Disaster Type', 'Start Year',
+       'Start Month', 'Start Day', 'End Year', 'End Month', 'End Day', 'Total Affected']]
+
+emdat_high_aff[['Start Year','Start Month', 'Start Day']] = (
+    emdat_high_aff[['Start Year','Start Month', 'Start Day']].fillna(1).astype(int))
+emdat_high_aff.rename(columns = dict(zip(['Start Year','Start Month', 'Start Day'],
+                              ["year", "month", "day"])), inplace = True)
+emdat_high_aff["date_start"] = pd.to_datetime(emdat_high_aff[["year", "month", "day"]])
+emdat_high_aff.drop(columns = ["year", "month", "day"], inplace = True)
+
+emdat_high_aff[['End Year','End Month', 'End Day']] = (
+    emdat_high_aff[['End Year','End Month', 'End Day']].fillna(12).astype(int))
+emdat_high_aff.rename(columns = dict(zip(['End Year','End Month', 'End Day'],
+                              ["year", "month", "day"])), inplace = True)
+emdat_high_aff["date_end"] = pd.to_datetime(emdat_high_aff[["year", "month", "day"]])
+emdat_high_aff.drop(columns = ["year", "month", "day"], inplace = True)
+
+## plot remittances and disasters occurrence
+
+fig = make_subplots(specs=[[{"secondary_y": True}]])
+fig.add_trace(go.Scatter(
+    x = df.date, y = df.total_mln, name = "Total remittances"
+), secondary_y=False)
+
+colors = ['red', 'yellow', 'green', 'brown', 'pink']
+colors_dict = dict(zip(emdat_high_aff["Disaster Type"].unique(), colors))
+for disaster in emdat_high_aff["Disaster Type"].unique():
+    df_dis = emdat_high_aff[emdat_high_aff["Disaster Type"] == disaster]
+    for i in range(len(df_dis)):
+        fig.add_vline(x=df_dis.iloc[i]["date_start"],
+                      name = disaster,
+                      line_width=2, line_color=colors_dict[disaster],
+                      showlegend = True if i == 0 else False)
+fig.show()
+
+
