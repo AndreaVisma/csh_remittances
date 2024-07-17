@@ -28,7 +28,7 @@ fig.add_trace(go.Scatter(
     x = df.date, y = df.total_mln_seas, name="total remittances<br>seasonally adjusted"
 ))
 fig.update_layout(title = "Seasonally adjusted remittances amounts")
-fig.to_html(out_folder + "total_adjusted.html")
+fig.write_html(out_folder + "total_adjusted.html")
 fig.show()
 
 ## total operations
@@ -40,7 +40,7 @@ fig.add_trace(go.Scatter(
     x = df.date, y = df.total_operations_seas, name="total operations<br>seasonally adjusted"
 ))
 fig.update_layout(title = "Seasonally adjusted number of operations")
-fig.to_html(out_folder + "operations_adjusted.html")
+fig.write_html(out_folder + "operations_adjusted.html")
 fig.show()
 
 ## promedio
@@ -52,5 +52,5 @@ fig.add_trace(go.Scatter(
     x = df.date, y = df.total_mean_op_seas, name="mean per operation<br>seasonally adjusted"
 ))
 fig.update_layout(title = "Seasonally adjusted mean dollars per operation")
-fig.to_html(out_folder + "promedio_adjusted.html")
+fig.write_html(out_folder + "promedio_adjusted.html")
 fig.show()
