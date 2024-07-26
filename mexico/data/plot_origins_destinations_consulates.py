@@ -1,86 +1,38 @@
 import pandas as pd
 import os
-import time
-from geopy.geocoders import Nominatim
 from tqdm import tqdm
+import time
 import geopandas
-import ast
 import plotly.graph_objects as go
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import plotly.express as px
 import plotly.io as pio
 pio.renderers.default = "browser"
 from utils import *
+import itertools
+from itertools import permutations
 
 mapbox_access_token = open("c:\\data\\geo\\mapbox_token.txt").read()
 
-###
-gdf = geopandas.read_file("C:\\data\\geo\\georef-mexico-municipality-millesime@public\\georef-mexico-municipality-millesime.shp")
-gdf['mun_name'] = gdf['mun_name'].apply(lambda x: ast.literal_eval(x)[0])
-gdf.sort_values('mun_name', inplace = True)
-gdf = gdf[~gdf.duplicated(['mun_name'])]
+df = pd.read_csv(os.getcwd() + "\\mexico\\data\\consulates_network_with_geo.csv")
 
-# Load the uploaded Excel file to examine its contents
-file_path = os.getcwd() + "\\mexico\\data\\consulates_network_2018_2022.xlsx"
-df = pd.read_excel(file_path)
-df.rename(columns = {'Municipio de Origen': 'mun_name'}, inplace = True)
+df_agg = df[['Número de Matrículas','registration_consulate', 'year',
+       'consul_lat', 'consul_lon', 'state', 'state_lat', 'state_lon']].groupby(
+    ['year', 'state', 'registration_consulate']
+).agg({
+    'Número de Matrículas' : 'sum',
+    'consul_lat' : 'first', 'consul_lon' : 'first',
+    'state_lat' : 'first', 'state_lon' : 'first'
+}).reset_index()
 
-miss = ['Batopilas','Heroica Villa Tezoatlán de Segura y Luna, Cuna de la Independencia de Oaxaca',
-        'Magdalena Jicotlán', 'MonteMorelos', 'San Juan Mixtepec - Distr. 08 -', 'San Juan Mixtepec - Distr. 26 -',
-        'San Pedro Mixtepec - Distr. 22 -','San Pedro Mixtepec - Distr. 26 -', 'San Pedro Totolapa',
-        'Silao', 'Temósachi', 'Ticumuy', 'Tixpéhual ', 'Villa de Tututepec de Melchor Ocampo',
-        'Zacatepec de Hidalgo', 'Zapotitlán del Río']
-fix = ['Batopilas de Manuel Gómez Morín', 'Heroica Villa Tezoatlán de Segura y Luna', 'Santa Magdalena Jicotlán',
-       'Montemorelos', 'San Juan Mixtepec','San Juan Mixtepec', 'San Juan Mixtepec', 'San Juan Mixtepec',
-       'San Pedro Totolápam', 'Silao de la Victoria', 'Temósachic', 'Timucuy',
-       'Tixpéhual', 'Melchor Ocampo', 'Zacatepec', 'San Antonio Huitepec']
-dict_names = dict(zip(miss, fix))
-
-df.loc[df.mun_name.isin(miss), 'mun_name'] = df.loc[df.mun_name.isin(miss), 'mun_name'].map(dict_names)
-
-#merge
-df = df.merge(gdf[['mun_name', 'geometry']], on='mun_name', how = 'left')
-df = geopandas.GeoDataFrame(df, geometry="geometry")
-df['geometry'] = df['geometry'].centroid
-df.rename(columns = {'geometry' : 'mun_geometry'}, inplace = True)
-df['mun_lat'] = df.mun_geometry.y
-df['mun_lon'] = df.mun_geometry.x
-
-##now coordinates for US states
-gdf = geopandas.read_file("c:\\data\\geo\\us-major-cities\\USA_Major_Cities.shp")
-gdf = gdf[['NAME', 'geometry']].copy()
-gdf.sort_values('NAME', inplace = True)
-gdf.rename(columns = {'NAME' : 'registration_consulate'}, inplace = True)
-
-miss = list(set(df.registration_consulate) - set(gdf.registration_consulate))
-fix = ['San Jose', 'Del Rio', 'Indianapolis', 'Calexico',
-       'Philadelphia', 'Boise City', 'Minneapolis',
-       'New Orleans', 'New York', 'Los Angeles', 'McAllen',
-       'Presidio']
-dict_names = dict(zip(miss, fix))
-
-df.loc[df.registration_consulate.isin(miss), 'registration_consulate'] = (
-    df.loc[df.registration_consulate.isin(miss), 'registration_consulate'].map(dict_names))
-
-df = df.merge(gdf[['registration_consulate', 'geometry']], on='registration_consulate', how = 'left')
-df = geopandas.GeoDataFrame(df, geometry="geometry")
-df['geometry'] = df['geometry'].centroid
-df.rename(columns = {'geometry' : 'consul_geometry'}, inplace = True)
-
-#fill in by hand the coordinates for Presidio
-df.loc[df.registration_consulate == 'Presidio', 'consul_geometry'] = [geopandas.points_from_xy(x=[-104.368], y=[29.563])]
-
-df['consul_lat'] = df.consul_geometry.y
-df['consul_lon'] = df.consul_geometry.x
-
-df.isna().sum()
-
+len(df_agg.registration_consulate.unique())
 ###########
 # plots
 ##########
 cmap = plt.get_cmap('YlGn')
 
-def network_per_year_state(year, mexican_state):
+def network_per_year_state_granular(year, mexican_state):
 
     df_year = df[(df.year == year) &
                  (df["Estado de Origen"] == mexican_state)].copy().reset_index(drop = True)
@@ -128,6 +80,166 @@ def network_per_year_state(year, mexican_state):
     fig.update_traces(opacity=.5)
     fig.show()
 
-network_per_year_state(2022, 'Campeche')
-network_per_year_state(2022, 'Baja California')
-network_per_year_state(2022, 'Ciudad de México')
+def network_per_year_whole_states_all(year, mexican_state, show = False):
+
+    outfolder = os.getcwd() + "\\mexico\\data\\plots\\"
+    try:
+        os.mkdir(outfolder + f"{mexican_state}")
+    except:
+        time.sleep(0.0000001)
+    outfolder = outfolder + f"{mexican_state}\\"
+
+    df_agg_state = df_agg[(df_agg.year == year) &
+                 (df_agg["state"] == mexican_state)].copy().reset_index(drop=True)
+
+    fig = go.Figure()
+    for i in tqdm(range(len(df_agg_state))):
+        lons, lats = shortest_path([df_agg_state['state_lon'][i], df_agg_state['state_lat'][i]],
+                                   [df_agg_state['consul_lon'][i], df_agg_state['consul_lat'][i]],
+                                   dir=1, n=50)
+        color = mpl.colors.rgb2hex(cmap(df_agg_state['Número de Matrículas'][i] / df_agg_state['Número de Matrículas'].max()))
+        fig.add_trace(
+            go.Scattermapbox(
+                lon=lons,
+                lat=lats,
+                mode='lines+markers',
+                line=dict(width=2, #0 * df_agg_state["Número de Matrículas"][i] / df_agg_state["Número de Matrículas"].max(),
+                          color=color),
+                marker=dict(showscale=True,
+                            size=0,
+                            color=color,
+                            colorscale="YlGn",
+                            cmin=df_agg_state["Número de Matrículas"].min(),
+                            cmax=df_agg_state["Número de Matrículas"].max(),
+                            colorbar=dict(
+                                title='Registered matriculas')
+                            ),
+                hovertext=f"Numero matriculas: {df_agg_state['Número de Matrículas'][i]}" +
+                          f"<br>Origin: {df_agg_state['state'][i]}" +
+                          f"<br>Destination consulate: {df_agg_state['registration_consulate'][i]}",
+                showlegend=False
+            )
+        )
+    fig.update_layout(
+        title=f"Mexican migrants from {mexican_state} in {year}",
+        hovermode='closest',
+        mapbox=dict(
+            style="open-street-map",
+            accesstoken=mapbox_access_token,
+            bearing=0,
+            center=go.layout.mapbox.Center(
+                lat=32,
+                lon=-96
+            ),
+            pitch=0,
+            zoom=3
+        )
+    )
+    fig.update_traces(opacity=.7)
+    fig.write_html(outfolder + f"{mexican_state}_flows_{year}.html")
+    fig.show() if show else time.sleep(0.00000001)
+
+
+network_per_year_whole_states_all(2022, 'Campeche', show=True)
+
+for year in tqdm(df_agg.year.unique()):
+    for state in tqdm(df_agg.state.unique()):
+        network_per_year_whole_states_all(year, state, show=False)
+
+def sankey_year(year, show = False):
+    # country as origin
+    outfolder = os.getcwd() + "\\mexico\\data\\plots\\"
+
+    df_or = df_agg[(df_agg.year == year)].copy().reset_index(drop=True)
+
+    labels = df_or.state.unique().tolist() + df_or.registration_consulate.unique().tolist()
+
+    source = [labels.index(row['state']) for ind,row in df_or.iterrows()]
+    target = [labels.index(row['registration_consulate']) for ind,row in df_or.iterrows()]
+    value = df_or['Número de Matrículas'].to_list()
+
+    fig = go.Figure(data=[go.Sankey(
+        node=dict(
+            pad=15,
+            thickness=20,
+            line=dict(color="black", width=0.5),
+            label=labels,
+            color="blue"
+        ),
+        link=dict(
+            source=source,
+            target=target,
+            value=value
+        ))])
+
+    fig.update_layout(title_text=f"Distribution of Mexican-born migrants<br>"
+                                 f"registered at a consulate in {year}", font_size=10)
+    fig.write_html(outfolder + f"sankey_migrants_{year}.html")
+    if show:
+        fig.show()
+
+def sankey_states_comparison(year, states, show = False):
+    # country as origin
+    outfolder = os.getcwd() + "\\mexico\\data\\plots\\comparison\\"
+
+    df_or = (df_agg[(df_agg.year == year) & (df_agg.state.isin(states))].
+             copy().reset_index(drop=True).
+             sort_values("Número de Matrículas", ascending = False))
+
+    labels = (df_or.state.unique().tolist() +
+              df_or.loc[~df_or.duplicated('registration_consulate'), "registration_consulate"].tolist())
+
+    source = [labels.index(row['state']) for ind,row in df_or.iterrows()]
+    target = [labels.index(row['registration_consulate']) for ind,row in df_or.iterrows()]
+    value = df_or['Número de Matrículas'].to_list()
+
+    fig = go.Figure(data=[go.Sankey(
+        node=dict(
+            pad=15,
+            thickness=20,
+            line=dict(color="black", width=0.5),
+            label=labels,
+            # color="blue"
+        ),
+        link=dict(
+            source=source,
+            target=target,
+            value=value
+        ))])
+
+    fig.update_layout(title_text=f"Distribution of Mexican-born migrants<br>"
+                                 f"registered at a consulate in {year}<br>"
+                      f"and coming from {','.join(states)}", font_size=10)
+    fig.write_html(outfolder + f"sankey_{year}_comparison_{', '.join(states)}.html")
+    if show:
+        fig.show()
+
+sankey_states_comparison(2022, ['Veracruz', 'Jalisco'],True)
+sankey_states_comparison(2018, ['Veracruz', 'Jalisco'],True)
+
+sankey_states_comparison(2022, ['Veracruz', 'Jalisco', 'Nuevo León'],True)
+
+def pie_from_state_year(year, state, show = False):
+    outfolder = os.getcwd() + "\\mexico\\data\\plots\\"
+    try:
+        os.mkdir(outfolder + f"{state}")
+    except:
+        time.sleep(0.0000001)
+    outfolder = outfolder + f"{state}\\"
+
+    df_or = (df_agg[(df_agg.year == year) & (df_agg.state == state)].
+             copy().reset_index(drop=True).
+             sort_values("Número de Matrículas", ascending = False))
+
+    fig = px.pie(df_or, values="Número de Matrículas",
+                 names='registration_consulate',
+                 title=f'Population registred in each consulate<br>coming from {state}',
+                 color_discrete_sequence=px.colors.sequential.speed)
+    fig.update_traces(textposition='inside', textinfo='percent+label')
+    fig.write_html(outfolder + f"piechart_{year}.html")
+    if show:
+        fig.show()
+
+for state in df.state.unique():
+    pie_from_state_year(2022, state, show = False)
+

@@ -1,8 +1,10 @@
-import pandas as pd
 import zipfile
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 import os
+import pandas as pd
+from tqdm import tqdm
+import geopandas
 
 folder = "c:\\data\\remittances\\mexico\\consulados\\"
 
