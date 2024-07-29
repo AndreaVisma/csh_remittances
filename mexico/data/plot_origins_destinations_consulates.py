@@ -17,6 +17,7 @@ mapbox_access_token = open("c:\\data\\geo\\mapbox_token.txt").read()
 
 df = pd.read_csv(os.getcwd() + "\\mexico\\data\\consulates_network_with_geo.csv")
 
+### aggregate by state of origin, destination, year
 df_agg = df[['Número de Matrículas','registration_consulate', 'year',
        'consul_lat', 'consul_lon', 'state', 'state_lat', 'state_lon']].groupby(
     ['year', 'state', 'registration_consulate']
@@ -26,11 +27,68 @@ df_agg = df[['Número de Matrículas','registration_consulate', 'year',
     'state_lat' : 'first', 'state_lon' : 'first'
 }).reset_index()
 
-len(df_agg.registration_consulate.unique())
+### aggregate by state of origin, year
+df_agg_state = df[['Número de Matrículas', 'year', 'state']].groupby(
+    ['year', 'state']
+).agg({
+    'Número de Matrículas' : 'sum'
+}).reset_index()
+
+gdf = geopandas.read_file("c:\\data\\geo\\world_admin2\\World_Administrative_Divisions.shp")
+gdf = gdf[(gdf.COUNTRY == "Mexico") & (gdf.LAND_RANK == 5)][['NAME', 'geometry']]
+gdf.sort_values('NAME', inplace = True)
+gdf.rename(columns = {'NAME' : 'state'}, inplace = True)
+
+miss = ['Coahuila de Zaragoza','Veracruz de Ignacio de la Llave', 'Michoacán de Ocampo','México']
+fix = ['Coahuila', 'Veracruz', 'Michoacán', 'Estado de México']
+dict_names = dict(zip(miss, fix))
+gdf.loc[gdf.state.isin(miss), 'state'] = (
+    gdf.loc[gdf.state.isin(miss), 'state'].map(dict_names))
+
+df_agg_state = df_agg_state.merge(gdf[['state', 'geometry']], left_on='state',
+              right_on = 'state', how = 'left')
+df_agg_state = geopandas.GeoDataFrame(df_agg_state, geometry='geometry')
+
 ###########
 # plots
 ##########
 cmap = plt.get_cmap('YlGn')
+
+def mapbox_emigration_states_per_year(year, show = False):
+
+    outfolder = os.getcwd() + "\\mexico\\data\\plots\\mapbox_per_year\\"
+    df_year = df_agg_state[df_agg_state.year == year].copy()
+    fig = go.Figure()
+    fig = fig.add_trace(go.Choroplethmapbox(geojson=json.loads(df_year['geometry'].to_json()),
+                                            locations=df_year.index,
+                                            z=df_year["Número de Matrículas"],
+                                            text=df_year['state'],
+                                            hovertemplate=
+                                            '<br>State: %{text}' +
+                                            '<br>Registered migrants from<br>the state: %{z:,.0f}',
+                                            colorscale="speed", marker_opacity=0.7,
+                                            colorbar_title="Number of registered<br>migrants form the state"))
+    fig.update_layout(
+        hovermode='closest',
+        mapbox=dict(
+            accesstoken=mapbox_access_token,
+            bearing=0,
+            center=go.layout.mapbox.Center(
+                lat=23.5,
+                lon=-99
+            ),
+            pitch=0,
+            zoom=4.6
+        )
+    )
+    fig.update_layout(title=f'Registered migrants to the US per Mexican state, {year}')
+    fig.update_geos(fitbounds="locations", lataxis_showgrid=True, lonaxis_showgrid=True, showcountries=True)
+    fig.write_html(outfolder + f"\\mapbox_migrants_{year}.html")
+    if show:
+        fig.show()
+
+for year in tqdm(df_agg_state.year.unique()):
+    mapbox_emigration_states_per_year(year)
 
 def network_per_year_state_granular(year, mexican_state):
 
