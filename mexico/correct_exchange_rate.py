@@ -44,12 +44,12 @@ fig.write_html(out_folder + "total_remittances_and_exchange_rate.html")
 fig.show()
 
 #plot total in pesos and in dollars
-df["total_remittances_USD"] = df.total_mln_seas / df.pesos_for_dollar
+df["total_remittances_pesos"] = df.total_mln_seas * df.pesos_for_dollar
 
 fig = make_subplots(specs=[[{"secondary_y": True}]])
-fig.add_trace(go.Scatter(x=df.date, y=df.total_mln_seas, name = "total remittances to Mexico<br><b>in Mexican pesos<b>"),
+fig.add_trace(go.Scatter(x=df.date, y=df.total_remittances_pesos, name = "total remittances to Mexico<br><b>in Mexican pesos</b> (lhs)"),
               secondary_y=False)
-fig.add_trace(go.Scatter(x=df.date, y=df.total_remittances_USD, name = "total remittances to Mexico<br><b>in US dollars<b>"),
+fig.add_trace(go.Scatter(x=df.date, y=df.total_mln_seas, name = "total remittances to Mexico<br><b>in US dollars</b> (rhs)"),
               secondary_y=True)
 fig['layout']['yaxis2']['showgrid'] = False
 fig.update_layout(title = "Total remittances to Mexico in pesos and dollars")
