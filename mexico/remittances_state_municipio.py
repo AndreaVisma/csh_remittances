@@ -59,6 +59,11 @@ gdf.loc[gdf.state.isin(miss), 'state'] = (
 df_state = df[df.entity_type == 'state'].merge(gdf, on='state')
 df_state = geopandas.GeoDataFrame(df_state, geometry = 'geometry')
 
+
+fig = px.line(df_state, x="Three months period starting", y = 'mln_USD_remesas', color = 'state')
+fig.update_layout(title = "Remittances received by Mexican state, mln USD")
+fig.write_html(os.getcwd() + "\\mexico\\plots\\remittances_per_state_overtime.html")
+fig.show()
 ###########
 # plots
 ##########
