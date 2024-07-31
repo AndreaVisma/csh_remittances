@@ -206,3 +206,34 @@ fig.update_layout(title = "distribution of received remittances from each state"
 fig.update_yaxes(title = "Mln USD in received remittances")
 fig.write_html(os.getcwd() + "\\mexico\\models\\plots\\remesas_recibidas_violin_overtime.html")
 fig.show()
+
+###
+# expected number of migrants given remittances
+df_22['expected_migrants'] = df_22['mln_USD_remesas'] * 1_000_000 / 12 / promedio_usd #assuming one sending of remittances a month
+outfolder = os.getcwd() + "\\mexico\\plots\\remittances_per_state\\"
+fig = go.Figure()
+fig = fig.add_trace(go.Choroplethmapbox(geojson=json.loads(df_22['geometry'].to_json()),
+                                        locations=df_22.index,
+                                        z=df_22["expected_migrants"],
+                                        text=df_22['state'],
+                                        hovertemplate=
+                                        '<br>State: %{text}' +
+                                        '<br>Expected nr migrants<br>given remittances: %{z:,.0f}',
+                                        colorscale="speed", marker_opacity=0.7,
+                                        colorbar_title="Expected nr migrants<br>given remittances"))
+fig.update_layout(hovermode='closest',mapbox=dict(accesstoken=mapbox_access_token,bearing=0,
+        center=go.layout.mapbox.Center(lat=23.5,lon=-99),pitch=0,zoom=4.6))
+fig.update_layout(title=f'Expected nr migrants given remittances, by Mexican state')
+fig.update_geos(fitbounds="locations", lataxis_showgrid=True, lonaxis_showgrid=True, showcountries=True)
+fig.write_html(outfolder + f"\\expected_migrants_given_remittances.html")
+fig.show()
+
+##scatter
+outfolder = 'C:\\git-projects\\csh_remittances\\mexico\\plots\\'
+fig = px.scatter(df_22, x="nr_registered", y="expected_migrants", hover_data=['state'],
+                 trendline="ols")
+fig.update_yaxes(title="nr registered IME")
+fig.update_xaxes(title="Expected migrants given remittances")
+fig.update_layout(title=f'Migration sources by Mexican state, 2022, CONAPO v. IME')
+fig.write_html(outfolder + f"\\IMEvCONAPO\\CONAPO_v_IME_migrants_2022_states.html")
+fig.show()

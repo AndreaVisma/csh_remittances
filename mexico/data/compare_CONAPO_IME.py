@@ -137,17 +137,8 @@ fig = fig.add_trace(go.Choroplethmapbox(geojson=json.loads(df['geometry'].to_jso
 fig.update_layout(
 
     hovermode='closest',
-    mapbox=dict(
-        accesstoken=mapbox_access_token,
-        bearing=0,
-        center=go.layout.mapbox.Center(
-            lat=23.5,
-            lon=-99
-        ),
-        pitch=0,
-        zoom=4.6
-    )
-)
+    mapbox=dict(accesstoken=mapbox_access_token, bearing=0,
+        center=go.layout.mapbox.Center(lat=23.5, lon=-99), pitch=0,zoom=4.6))
 fig.update_layout(title=f'Number of households with at least 1 member migrated to the US, CONAPO, by Mexican state')
 fig.update_geos(fitbounds="locations", lataxis_showgrid=True, lonaxis_showgrid=True, showcountries=True)
 fig.write_html(outfolder + f"\\households_with_US_migrants_per_state_2020.html")
@@ -184,3 +175,13 @@ for year in df_all_years.year_x.unique():
     fig.update_layout(title=f'Migration sources by Mexican state, {year}, CONAPO v. IME')
     fig.write_html(outfolder + f"\\IMEvCONAPO\\CONAPO_v_IME_migrants_{year}_states.html")
     # fig.show()
+
+## expected migrants v CONAPO households
+df['expected_migrants'] = df['mln_USD_remesas'] * 1_000_000 / 12 / 326 #assuming one sending of remittances a month
+fig = px.scatter(df, x="mig_hh", y="expected_migrants", hover_data=['state'],
+                 trendline="ols", text="state")
+fig.update_xaxes(title="Households with migrants CONAPO")
+fig.update_yaxes(title="Expected migrants given remittances")
+fig.update_layout(title=f'Expected migrants given remittances v CONAPO migrants data')
+fig.write_html(outfolder + f"\\CONAPO_v_expected_migrants_2022_states.html")
+fig.show()
