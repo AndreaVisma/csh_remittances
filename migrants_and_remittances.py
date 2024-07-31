@@ -95,8 +95,8 @@ plt.show(block = True)
 
 ## high remittances
 fig = px.scatter(df[df.remit_per_migrant > 10_000], x = "migrants_2020", y ="remit_per_migrant",
-                 color = "origin", log_x=True, log_y=True,
-                 hover_data=['remit_per_migrant', "destination"],
+                 color = "origin_mig", log_x=True, log_y=True,
+                 hover_data=['remit_per_migrant', "destination_mig", "origin_rem", "destination_rem"],
                  title= "remittances per migrant by origin")
 fig.show()
 

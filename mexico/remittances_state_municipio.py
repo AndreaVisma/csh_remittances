@@ -58,7 +58,7 @@ gdf.loc[gdf.state.isin(miss), 'state'] = (
 
 df_state = df[df.entity_type == 'state'].merge(gdf, on='state')
 df_state = geopandas.GeoDataFrame(df_state, geometry = 'geometry')
-
+df_state.to_excel("c:\\data\\remittances\\mexico\\remittances_state_long.xlsx", index = False)
 
 fig = px.line(df_state, x="Three months period starting", y = 'mln_USD_remesas', color = 'state')
 fig.update_layout(title = "Remittances received by Mexican state, mln USD")

@@ -229,3 +229,15 @@ plot_shares()
 #remittances and hosted migrants
 plot_outflows_migrants_by_year(no_USA = False)
 plot_outflows_migrants_by_year(no_USA = True)
+
+##
+import plotly.express as px
+fig = px.line(df_out, x = "year", y ="outflow",
+                 color = "country", log_x=False, log_y=True,
+                 title= "Outflow of remittances by country over time")
+fig.show()
+
+fig = px.line(df_in, x = "year", y ="inflow",
+                 color = "country", log_x=False, log_y=True,
+                 title= "Inflow of remittances by country over time")
+fig.show()

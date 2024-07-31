@@ -57,6 +57,27 @@ fig.update_layout(title = "Seasonally adjusted mean dollars per operation")
 fig.write_html(out_folder + "promedio_adjusted.html")
 fig.show()
 
+# operations and total
+## total amounts
+fig = make_subplots(specs=[[{"secondary_y": True}]])
+fig.add_trace(go.Scatter(
+    x = df.date, y = df.total_mln_seas, name="total remittances<br>seasonally adjusted (lhs)"
+), secondary_y=False)
+# fig.update_layout(title = "Seasonally adjusted remittances amounts")
+## total operations
+fig.add_trace(go.Scatter(
+    x = df.date, y = df.total_operations_seas, name="total operations<br>seasonally adjusted (rhs)"
+), secondary_y=True)
+fig.add_trace(go.Scatter(
+    x = df.date, y = df.total_mean_op_seas * 20, name=" 20 x mean per operation<br>seasonally adjusted (rhs)"
+), secondary_y=True)
+fig.update_layout(title = "Seasonally adjusted total remittances and number of operations")
+fig.update_yaxes(title_text="Millions USD in remittances sent to Mexico", secondary_y=False)
+fig.update_yaxes(title_text="Thousands of remittances operations", secondary_y=True)
+fig['layout']['yaxis2']['showgrid'] = False
+fig.write_html(out_folder + "total_and_operations_adjusted.html")
+fig.show()
+
 ##################
 # add migration stock data
 #################
@@ -104,6 +125,7 @@ fig.update_layout(title = "Remittances to Mexico and Mexican migrants in the Uni
 fig.update_yaxes(title_text="Millions USD in remittances sent to Mexico", secondary_y=False)
 fig.update_yaxes(title_text="Number of mexican-born migrants in the US", secondary_y=True)
 fig['layout']['yaxis2']['showgrid'] = False
-fig.update_yaxes(range=[6_000_000, 14_000_000], secondary_y = True)
+fig.update_yaxes(range=[6_500_000, 14_000_000], secondary_y = True)
 fig.write_html(out_folder + "remittances_and_migrants.html")
 fig.show()
+
