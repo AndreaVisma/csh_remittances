@@ -155,7 +155,7 @@ df.mex_state = df.mex_state.map(dict_mex_names)
 df.to_excel("c:\\data\\migration\\mexico\\migrants_mex_us_matriculas.xlsx", index = False)
 #check
 df_group = df[['nr_registered', 'mex_state', 'year']].groupby(['mex_state', 'year'], as_index = False).sum()
-df.to_excel("c:\\data\\migration\\migrants_mex_state_aggregate.xlsx", index = False)
+df.to_excel("c:\\data\\migration\\mexico\\migrants_mex_state_aggregate.xlsx", index = False)
 
 fig = px.line(df_group[~df_group.year.isin([2014, 2019])], x = 'year', y = 'nr_registered', color='mex_state')
 fig.update_layout(title = "Nr Mexican migrants registered at a consulate over time. by state of origin")
