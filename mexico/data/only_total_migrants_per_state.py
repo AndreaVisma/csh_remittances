@@ -8,6 +8,7 @@ import geopandas
 import plotly.express as px
 import plotly.io as pio
 pio.renderers.default = 'browser'
+from utils import *
 
 folder = "c:\\data\\migration\\mexico\\data_ime\\"
 
@@ -24,6 +25,56 @@ folder = "c:\\data\\migration\\mexico\\data_ime\\"
 
 df = pd.DataFrame([])
 
+#2010
+year = 2010
+folder_year = folder + f"{year}_ext\\Matriculas Rep. Mex.{year}"
+print(f"Processing {year} ...")
+for state in tqdm(os.listdir(folder_year)[:-1]):
+    folder_state = folder_year + f"\\{state}"
+    state = state.replace("compact2010", "")
+    file = [x for x in os.listdir(folder_state) if "edousa" in x and "._" not in x][0]
+    file_state = folder_state + f"\\{file}"
+
+    df_state = pd.read_excel(file_state, skiprows=9, skipfooter=7, usecols="B:D")
+    df_state.rename(columns={df_state.columns[0] : 'us_state',
+                             df_state.columns[1] : 'nr_registered',
+                             df_state.columns[2] : 'pct_registered'}, inplace = True)
+    df_state['mex_state'] = state
+    df_state['year'] = year
+    df = pd.concat([df, df_state])
+#2011
+year = 2011
+folder_year = folder + f"{year}_ext\\Matriculas Rep. Mex.{year}"
+print(f"Processing {year} ...")
+for state in tqdm(os.listdir(folder_year)):
+    folder_state = folder_year + f"\\{state}"
+    state = state.replace("2011F", "")
+    file = [x for x in os.listdir(folder_state) if "edousa" in x and "._" not in x][0]
+    file_state = folder_state + f"\\{file}"
+
+    df_state = pd.read_excel(file_state, skiprows=7, skipfooter=7, usecols="B:D")
+    df_state.rename(columns={df_state.columns[0] : 'us_state',
+                             df_state.columns[1] : 'nr_registered',
+                             df_state.columns[2] : 'pct_registered'}, inplace = True)
+    df_state['mex_state'] = state
+    df_state['year'] = year
+    df = pd.concat([df, df_state])
+# 2012
+year = 2012
+folder_year = folder + f"{year}_ext\\Matriculas Rep. Mex.{year}"
+print(f"Processing {year} ...")
+for state in tqdm(os.listdir(folder_year)): #iterate over all the files
+    folder_state = folder_year + f"\\{state}"
+    file = [x for x in os.listdir(folder_state) if "USA" in x and "._" not in x][0]
+    file_state = folder_state + f"\\{file}"
+
+    df_state = pd.read_excel(file_state, skiprows=10, skipfooter=7, usecols="B:D")
+    df_state.rename(columns={df_state.columns[0]: 'us_state',
+                             df_state.columns[1]: 'nr_registered',
+                             df_state.columns[2]: 'pct_registered'}, inplace=True)
+    df_state['mex_state'] = state
+    df_state['year'] = year
+    df = pd.concat([df, df_state])
 #2013
 year = 2013
 folder_year = folder + f"{year}_ext\\Matriculas Rep. Mex.{year}"
@@ -119,37 +170,9 @@ for state_file in tqdm(os.listdir(folder_year)):
 df.nr_registered.fillna(0, inplace = True)
 df.dropna(inplace = True)
 df = df[df.us_state != "Total"]
+df = df[df.us_state != "TOTAL"]
+df = df[df.us_state != "Estado Actual"]
 df = df[df.mex_state != "Total"]
-mex_states = ['aguascalientes', 'baja california', 'baja california sur',
-       'campeche', 'chiapas', 'chihuahua', 'ciudad de mxico', 'coahuila',
-       'colima', 'durango', 'estado de mxico', 'guanajuato', 'guerrero',
-       'hidalgo', 'jalisco', 'michoacn', 'morelos', 'nayarit',
-       'nuevo len', 'puebla', 'quertaro', 'quintana roo',
-       'san luis potos', 'sinaloa', 'sonora', 'tabasco', 'tamaulipas',
-       'tlaxcala', 'veracruz', 'yucatn', 'zacatecas', 'san_luis_potosi',
-       'oaxaca', 'Aguascalientes', 'Baja California Sur',
-       'Baja California', 'Campeche', 'Chiapas', 'Chihuahua',
-       'Ciudad de México', 'Coahuila', 'Colima', 'Durango',
-       'Estado de México', 'Guanajuato', 'Guerrero', 'Hildalgo',
-       'Jalisco', 'Michoacán', 'Morelos', 'Nayarit', 'Nuevo León',
-       'Oaxaca', 'Puebla', 'Querétaro', 'Quintana Roo', 'San Luis Potosí',
-       'Sinaloa', 'Sonora', 'Tabasco', 'Tamaulipas', 'Tlaxcala',
-       'Veracruz', 'Yucatán', 'Zacatecas', 'Hidalgo']
-mex_states_nice = ['Aguascalientes', 'Baja California', 'Baja California Sur',
-       'Campeche', 'Chiapas', 'Chihuahua', 'Ciudad de México', 'Coahuila',
-       'Colima','Durango', 'Estado de México', 'Guanajuato',
-       'Guerrero', 'Hidalgo', 'Jalisco', 'Michoacán', 'Morelos',
-       'Nayarit', 'Nuevo León', 'Puebla', 'Querétaro',
-       'Quintana Roo', 'San Luis Potosí', 'Sinaloa', 'Sonora', 'Tabasco',
-       'Tamaulipas', 'Tlaxcala', 'Veracruz', 'Yucatán', 'Zacatecas',
-       'San Luis Potosí', 'Oaxaca', 'Aguascalientes', 'Baja California Sur', 'Baja California',
-       'Campeche', 'Chiapas', 'Chihuahua',
-       'Ciudad de México', 'Coahuila', 'Colima', 'Durango', 'Estado de México', 'Guanajuato',
-       'Guerrero', 'Hidalgo', 'Jalisco', 'Michoacán', 'Morelos',
-       'Nayarit', 'Nuevo León', 'Oaxaca', 'Puebla', 'Querétaro',
-       'Quintana Roo', 'San Luis Potosí', 'Sinaloa', 'Sonora', 'Tabasco',
-       'Tamaulipas', 'Tlaxcala', 'Veracruz', 'Yucatán', 'Zacatecas', 'Hidalgo']
-dict_mex_names  = dict(zip(mex_states, mex_states_nice))
 df.mex_state = df.mex_state.map(dict_mex_names)
 
 df.to_excel("c:\\data\\migration\\mexico\\migrants_mex_us_matriculas.xlsx", index = False)
@@ -157,7 +180,7 @@ df.to_excel("c:\\data\\migration\\mexico\\migrants_mex_us_matriculas.xlsx", inde
 df_group = df[['nr_registered', 'mex_state', 'year']].groupby(['mex_state', 'year'], as_index = False).sum()
 df_group.to_excel("c:\\data\\migration\\mexico\\migrants_mex_state_aggregate.xlsx", index = False)
 
-fig = px.line(df_group[~df_group.year.isin([2014, 2019])], x = 'year', y = 'nr_registered', color='mex_state')
+fig = px.line(df_group, x = 'year', y = 'nr_registered', color='mex_state')
 fig.update_layout(title = "Nr Mexican migrants registered at a consulate over time. by state of origin")
 fig.write_html(os.getcwd() + "\\mexico\\data\\plots\\matriculas_per_state_overtime.html")
 fig.show()
@@ -166,7 +189,7 @@ fig.show()
 df_group = df[['nr_registered', 'us_state', 'year']].groupby(['us_state', 'year'], as_index = False).sum()
 df_group.to_excel("c:\\data\\migration\\mexico\\migrants_us_state_aggregate.xlsx", index = False)
 
-fig = px.line(df_group[~df_group.year.isin([2014, 2019])], x = 'year', y = 'nr_registered', color='us_state')
+fig = px.line(df_group, x = 'year', y = 'nr_registered', color='us_state')
 fig.update_layout(title = "Nr Mexican migrants registered at a consulate over time. by state of destination")
 fig.write_html(os.getcwd() + "\\mexico\\data\\plots\\matriculas_per_US_state_overtime.html")
 fig.show()
