@@ -178,10 +178,10 @@ for year in df_all_years.year_x.unique():
 
 ## expected migrants v CONAPO households
 df['expected_migrants'] = df['mln_USD_remesas'] * 1_000_000 / 12 / 326 #assuming one sending of remittances a month
-fig = px.scatter(df, x="mig_hh", y="expected_migrants", hover_data=['state'],
+fig = px.scatter(df, x="nr_registered", y="expected_migrants", hover_data=['state'],
                  trendline="ols", text="state")
-fig.update_xaxes(title="Households with migrants CONAPO")
+fig.update_xaxes(title="Registered migrants IME")
 fig.update_yaxes(title="Expected migrants given remittances")
 fig.update_layout(title=f'Expected migrants given remittances v CONAPO migrants data')
-fig.write_html(outfolder + f"\\CONAPO_v_expected_migrants_2022_states.html")
+fig.write_html(outfolder + f"\\IME_v_expected_migrants_2022_states.html")
 fig.show()
