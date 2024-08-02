@@ -107,6 +107,27 @@ for state in tqdm(os.listdir(folder_year)):
     df_state['mex_state'] = state
     df_state['year'] = year
     df = pd.concat([df, df_state])
+#2014 again
+year = 2014
+print(f"Processing {year} agin for missing data...")
+folder_year = folder + f"{year}_ext_2\\Consulados_{year}"
+for state_folder in tqdm(os.listdir(folder_year)):
+    state = state_folder.replace(" 2014", "").title()
+    folder_state = folder_year + f"\\{state_folder}"
+    file = [x for x in os.listdir(folder_state) if f"edomex{str(year)[-2:]}" in x and "._" not in x][0]
+    states = ['Yucatán', 'Oaxaca']
+    file_state = folder_state + f"\\{file}"
+
+    df_state = pd.read_excel(file_state, skiprows=11, skipfooter=7, usecols="B:D")
+    df_state.rename(columns={df_state.columns[0]: 'mex_state',
+                             df_state.columns[1]: 'nr_registered',
+                             df_state.columns[2]: 'pct_registered'}, inplace=True)
+    df_state['us_state'] = state
+    df_state['mex_state'] = df_state['mex_state'].apply(lambda x: x.title())
+    df_state['year'] = year
+    df_state = df_state[df_state.mex_state.isin(states)]
+    df_state = df_state[df.columns.tolist()]
+    df = pd.concat([df, df_state])
 #2015
 years = [2015, 2016, 2017]
 for year in years:
@@ -125,25 +146,34 @@ for year in years:
         df_state['year'] = year
         df = pd.concat([df, df_state])
 #2015 the second time
-year = 2015
-print(f"Processing {year} to retrieve Nuevo Leon data...")
-folder_year = folder + f"{year}_ext_2\\Consulados_{year}"
-for state_folder in tqdm(os.listdir(folder_year)):
-    state = state_folder.title()
-    folder_state = folder_year + f"\\{state_folder}"
-    file = [x for x in os.listdir(folder_state) if "edomex2015" in x and "._" not in x][0]
-    file_state = folder_state + f"\\{file}"
+years = [2013, 2015, 2016]
+for year in years:
+    print(f"Processing {year} again to retrieve missing data...")
+    folder_year = folder + f"{year}_ext_2\\Consulados_{year}"
+    for state_folder in tqdm(os.listdir(folder_year)):
+        state = state_folder.title()
+        folder_state = folder_year + f"\\{state_folder}"
+        if year == 2013:
+            file = [x for x in os.listdir(folder_state) if f"edomex{year}" in x and "educa" not in x][0]
+            states = ['Oaxaca']
+        if year == 2015:
+            file = [x for x in os.listdir(folder_state) if f"edomex{year}" in x and "._" not in x][0]
+            states = ['Nuevo León', 'Oaxaca', 'Puebla', 'Querétaro','Quintana Roo','San Luis Potosí','Sinaloa','Sonora','Tabasco','Tamaulipas']
+        if year == 2016:
+            file = [x for x in os.listdir(folder_state) if f"edomexgen{year}" in x and "._" not in x][0]
+            states = ['Nuevo León', 'Michoacán', 'Oaxaca']
+        file_state = folder_state + f"\\{file}"
 
-    df_state = pd.read_excel(file_state, skiprows=10, skipfooter=7, usecols="B:D")
-    df_state.rename(columns={df_state.columns[0]: 'mex_state',
-                             df_state.columns[1]: 'nr_registered',
-                             df_state.columns[2]: 'pct_registered'}, inplace=True)
-    df_state['us_state'] = state
-    df_state['mex_state'] = df_state['mex_state'].apply(lambda x: x.title())
-    df_state['year'] = year
-    df_state = df_state[df_state.mex_state == 'Nuevo León']
-    df_state = df_state[df.columns.tolist()]
-    df = pd.concat([df, df_state])
+        df_state = pd.read_excel(file_state, skiprows=10, skipfooter=7, usecols="B:D").dropna()
+        df_state.rename(columns={df_state.columns[0]: 'mex_state',
+                                 df_state.columns[1]: 'nr_registered',
+                                 df_state.columns[2]: 'pct_registered'}, inplace=True)
+        df_state['us_state'] = state
+        df_state['mex_state'] = df_state['mex_state'].apply(lambda x: x.title())
+        df_state['year'] = year
+        df_state = df_state[df_state.mex_state.isin(states)]
+        df_state = df_state[df.columns.tolist()]
+        df = pd.concat([df, df_state])
 #2018, 2020, 2021, 2022
 years = [2018, 2020, 2021, 2022]
 for year in years:
@@ -194,22 +224,24 @@ df = df[df.us_state != "TOTAL"]
 df = df[df.us_state != "Estado Actual"]
 df = df[df.mex_state != "Total"]
 df.mex_state = df.mex_state.map(dict_mex_names)
+print(df.isna().sum())
 
+##
 df.to_excel("c:\\data\\migration\\mexico\\migrants_mex_us_matriculas.xlsx", index = False)
 #check
 df_group = df[['nr_registered', 'mex_state', 'year']].groupby(['mex_state', 'year'], as_index = False).sum()
 df_group.to_excel("c:\\data\\migration\\mexico\\migrants_mex_state_aggregate.xlsx", index = False)
 
-fig = px.line(df_group, x = 'year', y = 'nr_registered', color='mex_state')
-fig.update_layout(title = "Nr Mexican migrants registered at a consulate over time. by state of origin")
-fig.write_html(os.getcwd() + "\\mexico\\data\\plots\\matriculas_per_state_overtime.html")
-fig.show()
+# fig = px.line(df_group, x = 'year', y = 'nr_registered', color='mex_state')
+# fig.update_layout(title = "Nr Mexican migrants registered at a consulate over time. by state of origin")
+# # fig.write_html(os.getcwd() + "\\mexico\\data\\plots\\matriculas_per_state_overtime.html")
+# fig.show()
 
 ## by us state
 df_group = df[['nr_registered', 'us_state', 'year']].groupby(['us_state', 'year'], as_index = False).sum()
 df_group.to_excel("c:\\data\\migration\\mexico\\migrants_us_state_aggregate.xlsx", index = False)
 
-fig = px.line(df_group, x = 'year', y = 'nr_registered', color='us_state')
-fig.update_layout(title = "Nr Mexican migrants registered at a consulate over time. by state of destination")
-fig.write_html(os.getcwd() + "\\mexico\\data\\plots\\matriculas_per_US_state_overtime.html")
-fig.show()
+# fig = px.line(df_group, x = 'year', y = 'nr_registered', color='us_state')
+# fig.update_layout(title = "Nr Mexican migrants registered at a consulate over time. by state of destination")
+# # fig.write_html(os.getcwd() + "\\mexico\\data\\plots\\matriculas_per_US_state_overtime.html")
+# fig.show()
