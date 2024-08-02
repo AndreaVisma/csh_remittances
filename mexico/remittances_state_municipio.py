@@ -26,7 +26,8 @@ mapbox_access_token = open("c:\\data\\geo\\mapbox_token.txt").read()
 out_folder = "c:\\git-projects\\csh_remittances\\mexico\\plots\\summary_remittances\\"
 
 ##load the data in
-df = pd.read_excel("c:\\data\\remittances\\mexico\\remittances_state_municipio.xlsx",
+file =  'remittances_state_municipio'
+df = pd.read_excel(f"c:\\data\\remittances\\mexico\\{file}.xlsx",
                    skiprows=9)
 df = df.iloc[8:,:]
 
@@ -58,7 +59,6 @@ gdf.loc[gdf.state.isin(miss), 'state'] = (
 
 df_state = df[df.entity_type == 'state'].merge(gdf, on='state')
 df_state = geopandas.GeoDataFrame(df_state, geometry = 'geometry')
-df_state.to_excel("c:\\data\\remittances\\mexico\\remittances_state_long.xlsx", index = False)
 
 fig = px.line(df_state, x="Three months period starting", y = 'mln_USD_remesas', color = 'state')
 fig.update_layout(title = "Remittances received by Mexican state, mln USD")
@@ -106,3 +106,16 @@ def mapbox_remittances_states_per_year(date_, show = False):
 
 for date_ in tqdm(df_state["Three months period starting"].unique()):
     mapbox_remittances_states_per_year(date_)
+
+####do the same thing at state level (longer data series)
+file = 'remittances_state'
+df = pd.read_excel(f"c:\\data\\remittances\\mexico\\{file}.xlsx",
+                   skiprows=9)
+df = df.iloc[8:,:]
+
+df = pd.melt(df, id_vars="Título", value_vars=df.columns.tolist()[1:], value_name="mln_USD_remesas")
+df.rename(columns = {"Título": "Three months period starting"}, inplace = True)
+df["state"] = df.variable.apply(lambda x: x.split(', ')[1])
+df.drop(columns = 'variable', inplace = True)
+
+df.to_excel("c:\\data\\remittances\\mexico\\remittances_state_long.xlsx", index = False)
