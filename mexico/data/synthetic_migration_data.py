@@ -120,10 +120,16 @@ df['nr_adj_with_corr'] = df['nr_adj']
 for state in ['Michoacán', 'Hidalgo', 'Zacatecas', 'Nuevo León', 'San Luis Potosí']:
     df.loc[(df.state == state) & (df.year == 2012), 'nr_adj_with_corr'] = (
             df.loc[(df.state == state) & (df.year == 2011), 'nr_adj'].item() + df.loc[(df.state == state) & (df.year == 2013), 'nr_adj'].item()) / 2
+for state in ['Michoacán', 'Nuevo León',]:
+    df.loc[(df.state == state) & (df.year == 2016), 'nr_adj_with_corr'] = (
+            df.loc[(df.state == state) & (df.year == 2015), 'nr_adj'].item() + df.loc[(df.state == state) & (df.year == 2017), 'nr_adj'].item()) / 2
 for state in tqdm(df.state.unique()):
     for year in [2014, 2019]:
         df.loc[(df.state == state) & (df.year == year), 'nr_adj_with_corr'] = (
                 df.loc[(df.state == state) & (df.year == (year - 1)), 'nr_adj'].item() + df.loc[(df.state == state) & (df.year == (year + 1)), 'nr_adj'].item()) / 2
+
+fig = px.line(df, x = 'year', y = 'nr_adj_with_corr', color='state')
+fig.show()
 
 ###UN data
 data_folder = os.getcwd() + "\\data_downloads\\data\\"
@@ -140,5 +146,26 @@ df_all.dropna(inplace = True)
 df_mex = df_all[(df_all.origin == "Mexico") & (df_all.destination == "USA")]
 df_mex = pd.melt(df_mex, id_vars=['origin', 'destination'], value_vars=[x for x in df_mex.columns[2:]],
                  var_name='year', value_name='migrants_stock')
-df_mex = df_mex[df_mex.year > 1990]
 df_mex.loc[len(df_mex.index) + 1] = ['Mexico', 'USA', 2022, 10_820_514]
+df_mex = df_mex[df_mex.year > 2009]
+
+## volumes chart
+df['nr_adj_with_corr_to_UN'] = df['nr_adj_with_corr'] / (df[df.year == 2010]['nr_adj_with_corr'].sum() / df_mex[df_mex.year == 2010].migrants_stock.item())
+df.sort_values(['year', 'nr_adj_with_corr'], inplace = True)
+fig = go.Figure()
+for i in range(len(df.state.unique())):
+    state = df.state.unique()[i]
+    if i == 0:
+        fig.add_trace(go.Scatter(x=df[df.state == state].year, y=df[df.state == state].nr_adj_with_corr_to_UN, name=state, fill = 'tozeroy'))
+        series = df[df.state == state].nr_adj_with_corr_to_UN.reset_index(drop = True)
+    else:
+        series = series + df[df.state == state].nr_adj_with_corr_to_UN.reset_index(drop = True)
+        fig.add_trace(go.Scatter(x=df[df.state == state].year, y=series, name=state, fill = 'tonexty'))
+    fig.update_layout(title = f'Adjusted IME data')
+    fig.write_html(outfolder + f"all_states_volumes.html")
+fig.add_trace(go.Scatter(x = df_mex.year, y = df_mex.migrants_stock, mode = 'lines', name= 'UN data', line =dict(color = 'black')))
+fig.show()
+
+##save
+df = df[['state', 'year', 'nr_registered', 'nr_adj', 'nr_adj_with_corr','nr_adj_with_corr_to_UN']]
+df.to_excel("c:\\data\\migration\\mexico\\migrants_per_state_IME_adj.xlsx", index = False)
