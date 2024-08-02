@@ -124,6 +124,26 @@ for year in years:
         df_state['mex_state'] = state
         df_state['year'] = year
         df = pd.concat([df, df_state])
+#2015 the second time
+year = 2015
+print(f"Processing {year} to retrieve Nuevo Leon data...")
+folder_year = folder + f"{year}_ext_2\\Consulados_{year}"
+for state_folder in tqdm(os.listdir(folder_year)):
+    state = state_folder.title()
+    folder_state = folder_year + f"\\{state_folder}"
+    file = [x for x in os.listdir(folder_state) if "edomex2015" in x and "._" not in x][0]
+    file_state = folder_state + f"\\{file}"
+
+    df_state = pd.read_excel(file_state, skiprows=10, skipfooter=7, usecols="B:D")
+    df_state.rename(columns={df_state.columns[0]: 'mex_state',
+                             df_state.columns[1]: 'nr_registered',
+                             df_state.columns[2]: 'pct_registered'}, inplace=True)
+    df_state['us_state'] = state
+    df_state['mex_state'] = df_state['mex_state'].apply(lambda x: x.title())
+    df_state['year'] = year
+    df_state = df_state[df_state.mex_state == 'Nuevo León']
+    df_state = df_state[df.columns.tolist()]
+    df = pd.concat([df, df_state])
 #2018, 2020, 2021, 2022
 years = [2018, 2020, 2021, 2022]
 for year in years:
