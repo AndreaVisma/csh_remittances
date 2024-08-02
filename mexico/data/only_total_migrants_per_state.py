@@ -42,6 +42,27 @@ for state in tqdm(os.listdir(folder_year)[:-1]):
     df_state['mex_state'] = state
     df_state['year'] = year
     df = pd.concat([df, df_state])
+#2010 again
+year = 2010
+print(f"Processing {year} again for missing data...")
+folder_year = folder + f"{year}_ext_2\\Consulados_{year}"
+for state_folder in tqdm(os.listdir(folder_year)):
+    state = state_folder.replace("compact2010", "")
+    folder_state = folder_year + f"\\{state_folder}"
+    file = [x for x in os.listdir(folder_state) if f"edomex{year}" in x and "edu" not in x][0]
+    states = ['Yucatan', 'Zacatecas']
+    file_state = folder_state + f"\\{file}"
+
+    df_state = pd.read_excel(file_state, skiprows=8, skipfooter=7, usecols="B:D")
+    df_state.rename(columns={df_state.columns[0]: 'mex_state',
+                             df_state.columns[1]: 'nr_registered',
+                             df_state.columns[2]: 'pct_registered'}, inplace=True)
+    df_state['us_state'] = state
+    df_state['mex_state'] = df_state['mex_state'].apply(lambda x: x.title())
+    df_state['year'] = year
+    df_state = df_state[df_state.mex_state.isin(states)]
+    df_state = df_state[df.columns.tolist()]
+    df = pd.concat([df, df_state])
 #2011
 year = 2011
 folder_year = folder + f"{year}_ext\\Matriculas Rep. Mex.{year}"
@@ -109,7 +130,7 @@ for state in tqdm(os.listdir(folder_year)):
     df = pd.concat([df, df_state])
 #2014 again
 year = 2014
-print(f"Processing {year} agin for missing data...")
+print(f"Processing {year} again for missing data...")
 folder_year = folder + f"{year}_ext_2\\Consulados_{year}"
 for state_folder in tqdm(os.listdir(folder_year)):
     state = state_folder.replace(" 2014", "").title()
