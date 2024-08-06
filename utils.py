@@ -143,3 +143,9 @@ dict_mex_names = {
     'Michoacán de Ocampo' : 'Michoacán',
     'México' : 'Estado de México'
 }
+
+
+css_colors = open("c:\\data\\general\\css_colors.txt", "r")
+css_colors = css_colors.read()
+css_colors = css_colors.split(", ")
+
