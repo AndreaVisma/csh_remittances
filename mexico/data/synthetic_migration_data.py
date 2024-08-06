@@ -10,6 +10,7 @@ import os
 import matplotlib.ticker as mtick
 import geopandas
 from utils import *
+from whittaker_eilers import WhittakerSmoother
 import plotly.io as pio
 pio.renderers.default = 'browser'
 
@@ -117,17 +118,22 @@ fig.show()
 
 #manual corrections
 df['nr_adj_with_corr'] = df['nr_adj']
-for state in ['Michoacán', 'Hidalgo', 'Zacatecas', 'Nuevo León', 'San Luis Potosí']:
-    df.loc[(df.state == state) & (df.year == 2012), 'nr_adj_with_corr'] = (
-            df.loc[(df.state == state) & (df.year == 2011), 'nr_adj'].item() + df.loc[(df.state == state) & (df.year == 2013), 'nr_adj'].item()) / 2
-for state in ['Michoacán', 'Nuevo León',]:
-    df.loc[(df.state == state) & (df.year == 2016), 'nr_adj_with_corr'] = (
-            df.loc[(df.state == state) & (df.year == 2015), 'nr_adj'].item() + df.loc[(df.state == state) & (df.year == 2017), 'nr_adj'].item()) / 2
 for state in tqdm(df.state.unique()):
-    for year in [2014, 2019]:
+    for year in [2014, 2020, 2019]:
         df.loc[(df.state == state) & (df.year == year), 'nr_adj_with_corr'] = (
-                df.loc[(df.state == state) & (df.year == (year - 1)), 'nr_adj'].item() + df.loc[(df.state == state) & (df.year == (year + 1)), 'nr_adj'].item()) / 2
+                df.loc[(df.state == state) & (df.year == (year - 2)), 'nr_adj'].item() + df.loc[(df.state == state) & (df.year == (year + 1)), 'nr_adj'].item()) / 2
+        df.loc[(df.state == state) & (df.year == year), 'nr_adj'] = (
+                                                                                      df.loc[(df.state == state) & (
+                                                                                                  df.year == (
+                                                                                                      year - 2)), 'nr_adj'].item() +
+                                                                                      df.loc[(df.state == state) & (
+                                                                                                  df.year == (
+                                                                                                      year + 1)), 'nr_adj'].item()) / 2
 
+whittaker_smoother = WhittakerSmoother(
+    lmbda=20, order=2, data_length=len(df.year.unique()))
+for state in tqdm(df.state.unique()):
+        df.loc[df.state == state, 'nr_adj_with_corr'] = whittaker_smoother.smooth(df.loc[df.state == state]['nr_adj_with_corr'].to_list())
 fig = px.line(df, x = 'year', y = 'nr_adj_with_corr', color='state')
 fig.show()
 
@@ -151,20 +157,22 @@ df_mex = df_mex[df_mex.year > 2009]
 
 ## volumes chart
 df['nr_adj_with_corr_to_UN'] = df['nr_adj_with_corr'] / (df[df.year == 2010]['nr_adj_with_corr'].sum() / df_mex[df_mex.year == 2010].migrants_stock.item())
+df['nr_adj_to_UN'] = df['nr_adj'] / (df[df.year == 2010]['nr_adj'].sum() / df_mex[df_mex.year == 2010].migrants_stock.item())
 df.sort_values(['year', 'nr_adj_with_corr'], inplace = True)
-fig = go.Figure()
-for i in range(len(df.state.unique())):
-    state = df.state.unique()[i]
-    if i == 0:
-        fig.add_trace(go.Scatter(x=df[df.state == state].year, y=df[df.state == state].nr_adj_with_corr_to_UN, name=state, fill = 'tozeroy'))
-        series = df[df.state == state].nr_adj_with_corr_to_UN.reset_index(drop = True)
-    else:
-        series = series + df[df.state == state].nr_adj_with_corr_to_UN.reset_index(drop = True)
-        fig.add_trace(go.Scatter(x=df[df.state == state].year, y=series, name=state, fill = 'tonexty'))
-    fig.update_layout(title = f'Adjusted IME data')
-    fig.write_html(outfolder + f"all_states_volumes.html")
-fig.add_trace(go.Scatter(x = df_mex.year, y = df_mex.migrants_stock, mode = 'lines', name= 'UN data', line =dict(color = 'black')))
-fig.show()
+for var in ['nr_adj_with_corr_to_UN', 'nr_adj_to_UN']:
+    fig = go.Figure()
+    for i in range(len(df.state.unique())):
+        state = df.state.unique()[i]
+        if i == 0:
+            fig.add_trace(go.Scatter(x=df[df.state == state].year, y=df[df.state == state][var], name=state, fill = 'tozeroy'))
+            series = df[df.state == state][var].reset_index(drop = True)
+        else:
+            series = series + df[df.state == state][var].reset_index(drop = True)
+            fig.add_trace(go.Scatter(x=df[df.state == state].year, y=series, name=state, fill = 'tonexty'))
+        fig.update_layout(title = f'Adjusted IME data - {var}')
+    fig.add_trace(go.Scatter(x = df_mex.year, y = df_mex.migrants_stock, mode = 'lines', name= 'UN data', line =dict(color = 'black')))
+    fig.write_html(outfolder + f"all_states_volumes_{var}.html")
+    fig.show()
 
 ##save
 df = df[['state', 'year', 'nr_registered', 'nr_adj', 'nr_adj_with_corr','nr_adj_with_corr_to_UN']]
