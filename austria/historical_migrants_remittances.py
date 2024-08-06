@@ -102,10 +102,35 @@ df = df[df.country != 'Canada']
 df = df[df['Remittances flow'] == 'from Austria']
 
 ###
-fig = px.scatter(df, 'pct_pop', 'pct_rem', color = 'country', text='year')
-fig.update_layout(title = 'Percentage population v. percentage remittances sent, 2011-2023')
+countries = [x for x in df.country.unique() if df.loc[df.country == x, 'pct_rem'].mean() > 2]
+df_small = df[df.country.isin(countries)]
+years = ["2011", "", "","","","","","","","","","","2023"]
+fig = go.Figure()
+for country in df_small.country.unique():
+    df_state = df_small[df_small.country == country]
+    fig = fig.add_trace(go.Scatter(x=df_state["pct_pop"], y=df_state["pct_rem"], text=years,
+                                   mode="lines+markers+text",
+                               marker=dict(size=10, symbol="arrow-bar-up", angleref="previous"), name = country))
+fig.update_xaxes(title="Percentage of the migrant population in Austria")
+fig.update_yaxes(title="Percentage of the remittances sent from Austria")
+fig.update_layout(title=f'Percentage population v. percentage remittances sent, <br> by nationality, 2011-2023, pct. remittances > 2%')
+fig.write_html(out_folder + f"\\pct_pop_v_pct_rem_2011-2023_more2pct.html")
 fig.show()
-
+##
+countries = [x for x in df.country.unique() if (0.5 < df.loc[df.country == x, 'pct_rem'].mean()) & (df.loc[df.country == x, 'pct_rem'].mean() < 2)]
+df_small = df[df.country.isin(countries)]
+years = ["2011", "", "","","","","","","","","","","2023"]
+fig = go.Figure()
+for country in df_small.country.unique():
+    df_state = df_small[df_small.country == country]
+    fig = fig.add_trace(go.Scatter(x=df_state["pct_pop"], y=df_state["pct_rem"], text=years,
+                                   mode="lines+markers+text",
+                               marker=dict(size=10, symbol="arrow-bar-up", angleref="previous"), name = country))
+fig.update_xaxes(title="Percentage of the migrant population in Austria")
+fig.update_yaxes(title="Percentage of the remittances sent from Austria")
+fig.update_layout(title=f'Percentage population v. percentage remittances sent, <br> by nationality, 2011-2023, pct. remittances < 2%, >0.5%')
+fig.write_html(out_folder + f"\\pct_pop_v_pct_rem_2011-2023_less2pct.html")
+fig.show()
 ###
 
 ##population by country
