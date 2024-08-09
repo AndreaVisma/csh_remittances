@@ -135,15 +135,19 @@ dict_mex_names = {
     'Hildalgo' : 'Hidalgo',
     'Michoacán' : 'Michoacán',
     'Nuevo León' : 'Nuevo León',
+    'Nuevo leon' : 'Nuevo León',
     'Querétaro' : 'Querétaro',
     'San Luis Potosí' : 'San Luis Potosí',
     'Yucatán' : 'Yucatán',
     'Coahuila de Zaragoza' : 'Coahuila',
     'Veracruz de Ignacio de la Llave' : 'Veracruz',
     'Michoacán de Ocampo' : 'Michoacán',
-    'México' : 'Estado de México'
+    'México' : 'Estado de México',
+    'Tamaupilas' : 'Tamaulipas',
+    'Zacatec' : 'Zacatecas',
+    'Mexico city' : 'Ciudad de México',
+    'Mexico' : 'Estado de México'
 }
-
 
 css_colors = open("c:\\data\\general\\css_colors.txt", "r")
 css_colors = css_colors.read()
