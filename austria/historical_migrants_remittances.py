@@ -78,6 +78,7 @@ df = df[df.year > 2010]
 df.to_excel("c:\\data\\remittances\\austria\\remittances_migrant_pop_austria_2011-2023.xlsx", index = False)
 
 #poisson probability
+df = pd.read_excel("c:\\data\\remittances\\austria\\remittances_migrant_pop_austria_2011-2023.xlsx")
 for year in tqdm(df.year.unique()):
     try:
         df.loc[df.year == year, 'pct_rem'] = (100 * df.loc[df.year == year, 'mln_euros'] /
@@ -108,13 +109,13 @@ years = ["2011", "", "","","","","","","","","","","2023"]
 fig = go.Figure()
 for country in df_small.country.unique():
     df_state = df_small[df_small.country == country]
-    fig = fig.add_trace(go.Scatter(x=df_state["pct_pop"], y=df_state["pct_rem"], text=years,
+    fig = fig.add_trace(go.Scatter(x=df_state["pop"], y=df_state["mln_euros"], text=years,
                                    mode="lines+markers+text",
                                marker=dict(size=10, symbol="arrow-bar-up", angleref="previous"), name = country))
-fig.update_xaxes(title="Percentage of the migrant population in Austria")
-fig.update_yaxes(title="Percentage of the remittances sent from Austria")
-fig.update_layout(title=f'Percentage population v. percentage remittances sent, <br> by nationality, 2011-2023, pct. remittances > 2%')
-fig.write_html(out_folder + f"\\pct_pop_v_pct_rem_2011-2023_more2pct.html")
+fig.update_xaxes(title="Migrant population in Austria")
+fig.update_yaxes(title="Million euros in remittances sent from Austria")
+fig.update_layout(title=f'Population and remittances sent, <br>by nationality, 2011-2023, pct. remittances > 2%')
+fig.write_html(out_folder + f"\\pop_v_rem_2011-2023_more2pct.html")
 fig.show()
 ##
 countries = [x for x in df.country.unique() if (0.5 < df.loc[df.country == x, 'pct_rem'].mean()) & (df.loc[df.country == x, 'pct_rem'].mean() < 2)]
@@ -123,15 +124,59 @@ years = ["2011", "", "","","","","","","","","","","2023"]
 fig = go.Figure()
 for country in df_small.country.unique():
     df_state = df_small[df_small.country == country]
-    fig = fig.add_trace(go.Scatter(x=df_state["pct_pop"], y=df_state["pct_rem"], text=years,
+    fig = fig.add_trace(go.Scatter(x=df_state["pop"], y=df_state["mln_euros"], text=years,
                                    mode="lines+markers+text",
                                marker=dict(size=10, symbol="arrow-bar-up", angleref="previous"), name = country))
-fig.update_xaxes(title="Percentage of the migrant population in Austria")
-fig.update_yaxes(title="Percentage of the remittances sent from Austria")
-fig.update_layout(title=f'Percentage population v. percentage remittances sent, <br> by nationality, 2011-2023, pct. remittances < 2%, >0.5%')
-fig.write_html(out_folder + f"\\pct_pop_v_pct_rem_2011-2023_less2pct.html")
+fig.update_xaxes(title="Migrant population in Austria")
+fig.update_yaxes(title="Million euros in remittances sent from Austria")
+fig.update_layout(title=f'Population and remittances sent, <br>by nationality, 2011-2023, pct. remittances < 2%, >0.5%')
+fig.write_html(out_folder + f"\\pop_v_rem_2011-2023_less2pct.html")
+fig.show()
+## all countries
+countries = [x for x in df.country.unique() if (df.loc[df.country == x, 'mln_euros'].mean() > 5) & (df.loc[df.country == x, 'pop'].mean() > 5_000)]
+df_small = df[df.country.isin(countries)]
+countries_ordered = (df_small[['country', 'pop']].groupby('country').mean().reset_index().
+ sort_values('pop', ascending = False)).country.to_list()
+fig = go.Figure()
+for country in countries_ordered:
+    df_state = df_small[df_small.country == country]
+    fig = fig.add_trace(go.Scatter(x=df_state["pop"], y=df_state["mln_euros"], text=years,
+                                   mode="lines+markers+text",
+                               marker=dict(size=10, symbol="arrow-bar-up", angleref="previous"), name = country))
+fig.update_xaxes(title="Migrant population in Austria")
+fig.update_yaxes(title="Million euros in remittances sent from Austria")
+fig.update_layout(legend_title_text='Countries ordered<br>by average<br>migrant population')
+fig.update_layout(title=f'Population and remittances sent, by nationality,<br>2011-2023, mean remittances > 5 mln, mean population > 5k')
+fig.write_html(out_folder + f"\\pop_v_rem_2011-2023_all.html")
 fig.show()
 ###
+
+######
+# final iteration : present only interesting cases
+#####
+countries = ['Afghanistan', 'Czechia', 'Germany', 'Syria', 'Ukraine', 'Serbia', 'Hungary', 'Turkey', 'Croatia', 'Romania']
+years = ["2011", "", "","","","","","","","","","","2023"]
+df_small = df[df.country.isin(countries)]
+countries_ordered = (df_small[['country', 'pop']].groupby('country').mean().reset_index().
+ sort_values('pop', ascending = False)).country.to_list()
+fig = go.Figure()
+for country in countries_ordered:
+    df_state = df_small[df_small.country == country]
+    fig = fig.add_trace(go.Scatter(x=df_state["pop"], y=df_state["mln_euros"], text=years,
+                                   mode="lines+markers+text",
+                               marker=dict(size=10, symbol="arrow-bar-up", angleref="previous"), name = country))
+fig.update_xaxes(title="Migrant population in Austria")
+fig.update_yaxes(title="Million euros in remittances sent from Austria")
+fig.update_layout(legend_title_text='Countries ordered<br>by average<br>migrant population')
+fig.update_layout(title=f'Diaspora population and remittances sent, by nationality,<br>2011-2023')
+fig.update_layout(
+    autosize=False,
+    width=1400,
+    height=800)
+fig.write_html(out_folder + f"\\BMI_praesi_countries.html")
+# fig.write_image(out_folder + f"\\BMI_praesi_countries.svg")
+fig.show()
+#############
 
 ##population by country
 fig = px.line(df, 'year', 'pop', color = 'country')
@@ -145,7 +190,7 @@ fig.show()
 
 ##poisson probability
 fig = px.line(df, 'year', 'poisson_prob', color = 'country')
-fig.update_yaxes(title = 'Poisson probability of each diaspora in Austria sending money per year')
+fig.update_yaxes(title = 'Probability of each diaspora in Austria sending money per year')
 fig.show()
 
 ##calculate percentage change in probability of sending remittances
@@ -155,5 +200,5 @@ for country in tqdm(df.country.unique()):
 
 ##change in poisson probability
 fig = px.line(df, 'year', 'pct_change_poisson_prob', color = 'country')
-fig.update_yaxes(title = 'Percentage change in the Poisson probability<br> of each diaspora in Austria sending money per year')
+fig.update_yaxes(title = 'Percentage change in the probability<br> of each diaspora in Austria sending money per year')
 fig.show()
