@@ -34,10 +34,13 @@ df = pd.concat([df_inflow, df_outflow])
 
 ## total flows
 tot = df[df.country == "Total"]
-fig = px.line(tot, x="year", y="mln_euros", color = "Remittances flow",
+tot["mln_euros"] = tot["mln_euros"] / 1000
+fig = px.bar(tot, x="year", y="mln_euros", color = "Remittances flow",
               title='Remittances flows to and from Austria, 2013-2023')
-fig.update_yaxes(title = "Million EUR in remittances")
-fig.write_html(outfolder + "total_remittances_flows.html")
+fig.update_yaxes(title = "<b>Billion (Milliarden) EUR in remittances</b>")
+fig.update_xaxes(title = "<b>Year</b>")
+fig.write_html(outfolder + "total_remittances_flows_mld_bar.html")
+fig.write_image(outfolder + "total_remittances_flows_mld_bar.png")
 fig.show()
 
 ## flows to each country

@@ -74,6 +74,7 @@ for state in tqdm(dict_mex_names.keys()):
 still_not_nice = not_nice_loc[~not_nice_loc.index.isin(nice_loc_2.index)]
 
 emdat_states = pd.concat([nice_loc, nice_loc_2])
+emdat_states['quarter'] = pd.PeriodIndex(emdat_states.date_start, freq='Q')
 
 fig = px.scatter(emdat_states, color = 'Location', x = 'date_start', y = 'Total Affected',
                  hover_data=['Disaster Type'])
@@ -135,23 +136,45 @@ df_reg_shift = df_reg.set_index('quarter').shift(3, freq = 'ME')
 df_reg_shift = df_reg_shift.shift(1, freq = 'D').reset_index()[['state', 'quarter', 'rem_per_quarter_USD']]
 df_reg_shift.rename(columns = {'rem_per_quarter_USD' : 'rem_per_quarter_t-1'}, inplace = True)
 df_reg = df_reg.merge(df_reg_shift, on = ['state', 'quarter'], how = 'inner')
+df_reg['quarter'] = pd.PeriodIndex(df_reg.quarter, freq='Q')
+
+emdat_states.rename(columns = {'Location' : 'state'}, inplace = True)
+df_reg = df_reg.merge(emdat_states[['state', 'quarter', 'Disaster Type', 'Total Affected']], how='left')
+df_reg['disaster_dummy'] = np.where(df_reg['Disaster Type'].isna(), 0, 1)
+df_reg['Total Affected'] = df_reg['Total Affected'].fillna(0)
 
 fig,ax = plt.subplots(figsize = (9,6))
 sns.scatterplot(data=df_reg, x="nr_adj_with_corr_to_UN", y="rem_per_quarter_USD", ax = ax, hue = 'state')
 plt.show(block = True)
 
+fig,ax = plt.subplots(figsize = (9,6))
+sns.lineplot(data=df_reg, x="quarter", y="nr_adj_with_corr_to_UN", ax = ax, hue = 'state')
+plt.show(block = True)
+
+
 
 # Outer is entity, inner is time
+df_reg['quarter'] = pd.PeriodIndex(df_reg.quarter, freq='Q').to_timestamp()
 df_reg = df_reg.set_index(['state', 'quarter'])
 
 from linearmodels.panel import PanelOLS
-mod = PanelOLS(df_reg['rem_per_quarter_USD'], df_reg[['nr_adj_with_corr_to_UN', 'rem_per_quarter_t-1']], entity_effects=True)
+
+mod = PanelOLS(df_reg['rem_per_quarter_USD'], df_reg[['nr_adj_with_corr_to_UN', 'disaster_dummy']],
+               entity_effects=True, check_rank = False, drop_absorbed=True)
 res = mod.fit(cov_type='clustered', cluster_entity=True)
 print(res)
 
-Y = df_reg['rem_per_quarter_USD']
-X = df_reg[['nr_adj_with_corr_to_UN']]
+
+mod = PanelOLS(df_reg['rem_per_quarter_USD'], df_reg[['nr_adj_with_corr_to_UN', 'Total Affected']],
+               entity_effects=True, check_rank = False, drop_absorbed=True)
+res = mod.fit(cov_type='clustered', cluster_entity=True)
+print(res)
+
+Y = df_reg.reset_index()['rem_per_quarter_USD']
+X = pd.concat([pd.concat([df_reg.reset_index()[['nr_adj_with_corr_to_UN', 'disaster_dummy', 'rem_per_quarter_t-1']], pd.get_dummies(df_reg.reset_index()['state'])],
+              axis = 1),pd.get_dummies(df_reg.reset_index()['quarter'])], axis = 1)
 X = sm.add_constant(X)
+X = X.astype('float64')
 model = sm.OLS(Y,X)
 res = model.fit()
 print(res.summary())

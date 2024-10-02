@@ -231,17 +231,17 @@ for country in tqdm(df.sending_country.unique(), total = len(df.sending_country.
 #######################
 
 #### instantiate the network
-df = df[df.mln_remittances > 150]
+df = df[df.mln_remittances > 100]
 G = nx.from_pandas_edgelist(df,
                             source = "sending_country",
                             target = "receiving_country",
                             edge_attr = "mln_remittances",
                             create_using=nx.MultiDiGraph) # important to maintain direction of the link
 
-seed = 111 # Seed random number generators for reproducibility
+seed = 123 # Seed random number generators for reproducibility
 pos = nx.spring_layout(G)
 
-node_sizes = [2000 * df[df.receiving_country == x].mln_remittances.sum() / df.mln_remittances.sum() for x in list(G.nodes)]
+node_sizes = [5 * len(df[df.receiving_country == x]) for x in list(G.nodes)]
 M = G.number_of_edges()
 edge_colors = range(2, M + 2)
 edge_alphas = [(5 + i) / (M + 4) for i in range(M)]
@@ -253,22 +253,23 @@ edges = nx.draw_networkx_edges(
     G,
     pos,
     node_size=node_sizes,
-    arrowstyle="->",
-    arrowsize=6,
+    arrows = False,
+    # arrowstyle="->",
+    # arrowsize=6,
     edge_color=edge_colors,
     edge_cmap=cmap,
     width=1
 )
 # set alpha value for each edge
-for i in range(M):
-    edges[i].set_alpha(edge_alphas[i])
+# for i in range(M):
+#     edges[i].set_alpha(edge_alphas[i])
 
-pc = mpl.collections.PatchCollection(edges, cmap=cmap)
-pc.set_array(edge_colors)
+# pc = mpl.collections.PatchCollection(edges, cmap=cmap)
+# pc.set_array(edge_colors)
 
 ax = plt.gca()
 ax.set_axis_off()
-plt.colorbar(pc, ax=ax)
-plt.title("Network of remittances 2021 (flows > 150mln USD)")
+# plt.colorbar(pc, ax=ax)
+plt.title("Network of remittances 2021")
 plt.show(block = True)
 
