@@ -1,7 +1,7 @@
 """
 Script: handle_age_data.py
 Author: Andrea Vismara
-Date: 04/07/2024
+Date: 02/10/2024
 Description: clean the age data downloaded from statistik austria
 """
 
@@ -90,7 +90,7 @@ def plot_comparison_distribution(years, countries):
         fig, ax = plt.subplots(figsize = (9,6))
         sns.barplot(df_small, x = 'mean_age', y = 'ratio', hue = 'country', ax = ax)
         plt.grid(True)
-        plt.title(f"Comparison of the age distribution of the population\nof {' and '.join(countries)} in {' and '.join(years_str)}")
+        plt.title(f"Comparison of the age distribution of the population\nof {' and '.join(countries)} living in Austria in {' and '.join(years_str)}")
         plt.xlabel('Age')
         plt.ylabel('Share of the diaspora population')
         ax.yaxis.set_major_formatter(mtick.PercentFormatter())
@@ -100,7 +100,7 @@ def plot_comparison_distribution(years, countries):
         fig, ax = plt.subplots(figsize = (9,6))
         sns.barplot(df_small, x = 'mean_age', y = 'ratio', hue = 'year', ax = ax)
         plt.grid(True)
-        plt.title(f"Comparison of the age distribution of the population\nof {' and '.join(countries)} in {' and '.join(years_str)}")
+        plt.title(f"Comparison of the age distribution of the population\nof {' and '.join(countries)} living in Austria in {' and '.join(years_str)}")
         plt.xlabel('Age')
         plt.ylabel('Share of the diaspora population')
         ax.yaxis.set_major_formatter(mtick.PercentFormatter())
