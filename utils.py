@@ -153,3 +153,4 @@ css_colors = open("c:\\data\\general\\css_colors.txt", "r")
 css_colors = css_colors.read()
 css_colors = css_colors.split(", ")
 
+austria_nighbours = ["Germany", "Czechia", "Switzerland", "Italy", "Slovakia", "Hungary", "Slovenia"]
