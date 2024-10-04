@@ -1,5 +1,5 @@
 """
-Script: hcpi_data.py
+Script: hcpi_gdp_data.py
 Author: Andrea Vismara
 Date: 03/10/2024
 Description: clean the data on the cost of sending remittances by the Wrold Bank
