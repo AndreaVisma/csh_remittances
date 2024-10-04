@@ -1,5 +1,5 @@
 """
-Script: hcpi_data.py
+Script: hcpi_gdp_data.py
 Author: Andrea Vismara
 Date: 03/10/2024
 Description: clean the HCPI data from He et al. (2023)
@@ -18,6 +18,7 @@ import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 folder = "C:\\Data\\economic\\"
+#inflation
 file = "global_inflation_data.xlsx"
 
 df = pd.read_excel(folder + file, sheet_name= 'hcpi_a', skipfooter=2, usecols="C:BG")
@@ -31,6 +32,24 @@ df['Country'] = df["Country"].map(dict_names)
 df.dropna(inplace = True)
 
 df.to_excel(folder + "annual_inflation_clean.xlsx", index = False)
+
+#gdp
+file = "global_gdp.xls"
+
+df = pd.read_excel(folder + file, sheet_name= 'Data', skiprows=3)
+df.drop(columns = ["Country Code", "Indicator Name", "Indicator Code"], inplace = True)
+
+df = pd.melt(df, id_vars='Country Name', value_vars=df.columns.tolist()[1:],
+             var_name='year', value_name='gdp')
+df.rename(columns = {"Country Name" : "country"}, inplace = True)
+df.sort_values(['country', 'year'], inplace = True)
+
+df['country'] = df["country"].map(dict_names)
+df["year"] = df["year"].astype(int)
+df = df[df.year >= 2000]
+df = df[~df.country.isna()]
+
+df.to_excel(folder + "annual_gdp_clean.xlsx", index = False)
 
 def plot_country_inflation(country):
 
