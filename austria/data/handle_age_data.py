@@ -56,7 +56,7 @@ for file in tqdm(list_files):
     df_all = pd.concat([df_all, df])
 
 df_all['mean_age'] = df['age_group'].apply(np.mean)
-df_all['year'] = df_all['year'].astype(int)
+df_all['year'] = df_all['year'].astype(int) - 1
 df_all['country'] = df_all['country'].map(dict_names)
 df_all.dropna(inplace = True)
 
@@ -106,3 +106,5 @@ def plot_comparison_distribution(years, countries):
         ax.yaxis.set_major_formatter(mtick.PercentFormatter())
         ax.xaxis.set_major_locator(plt.MaxNLocator(12))
         plt.show(block = True)
+
+plot_comparison_distribution([2020], ['Austria', 'Syria'])
