@@ -100,6 +100,21 @@ df['exp_migrants'] = df['rem_euros_month'] / 400
 df["poisson_prob"] = df["exp_migrants"] / df['pop']
 df["remittances_migrants_ratio"] = df["mln_euros"] * 1_000_000 / df["pop"]
 
+## plot totals
+df_flow = df.dropna()
+df_flow = df_flow[["year", "Remittances flow", "mln_euros"]].groupby(["year", "Remittances flow"]).sum().reset_index()
+df_flow["mln_euros"] = df_flow["mln_euros"] / 1_000
+
+fig, ax = plt.subplots(figsize=(7, 5))
+sns.lineplot(df_flow, x="year", y="mln_euros", hue="Remittances flow", ax=ax)
+plt.grid(True)
+ax.get_legend().remove()
+plt.title(f"Flows of remittances to and from Austria")
+plt.xlabel('Year')
+plt.ylabel('Billion of euros')
+fig.savefig(out_folder + "total_remittances_flows_mld_bar.png", bbox_inches = 'tight')
+plt.show(block=True)
+
 ### Canada is broken
 df = df[df.country != 'Canada']
 df = df[df['Remittances flow'] == 'from Austria']
@@ -156,34 +171,41 @@ fig.show()
 ######
 # final iteration : present only interesting cases
 #####
-countries = ['Afghanistan', 'Germany', 'Syria', 'Ukraine', 'Serbia', 'Hungary', 'Turkey', 'Croatia', 'Romania']
-# years = ["2011", "", "","","","","","","","","","","2023"]
+groups = [['Afghanistan', 'Serbia', 'Turkey'], ['Germany', 'Hungary', 'Croatia', 'Romania'], ['Syria', 'Ukraine']]
+colors = ['red', 'blue', 'black']
 years = ["","","","","","",""]
-df_small = df[(df.country.isin(countries)) & (df.year > 2016)]
-countries_ordered = (df_small[['country', 'pop']].groupby('country').mean().reset_index().
- sort_values('pop', ascending = False)).country.to_list()
 fig = go.Figure()
-for country in countries_ordered:
-    df_state = df_small[df_small.country == country]
-    fig = fig.add_trace(go.Scatter(x=df_state["pop"], y=df_state["mln_euros"], text=years,
-                                   mode="lines+markers+text",
-                                   marker=dict(size=10, symbol="arrow-bar-up", angleref="previous"),
-                                   name = country,
-                                   # line = dict(color = 'blue')
-                                   ))
-fig.update_xaxes(title="<b>Migrant population in Austria</b>", showgrid=True, gridwidth=1, gridcolor='grey')
-fig.update_yaxes(title="<b>Million euros in remittances sent from Austria</b>", showgrid=True, gridwidth=1, gridcolor='grey')
-fig.update_layout(legend_title_text='Countries ordered<br>by average<br>migrant population')
-fig.update_layout(title=f'<b>Diaspora population and remittances sent, 2017-2023</b>')
+for i in range(3):
+    countries = groups[i]
+    df_small = df[(df.country.isin(countries)) & (df.year > 2016)]
+    countries_ordered = (df_small[['country', 'pop']].groupby('country').mean().reset_index().
+                         sort_values('pop', ascending=False)).country.to_list()
+    color = colors[i]
+    for country in countries_ordered:
+        df_state = df_small[df_small.country == country]
+        fig = fig.add_trace(go.Scatter(x=df_state["pop"], y=df_state["mln_euros"], text=years,
+                                       mode="lines+markers+text",
+                                       marker=dict(size=10, symbol="arrow-bar-up", angleref="previous"),
+                                       name = country,
+                                       line = dict(color = color, width = 3), showlegend=False
+                                       ))
+fig.update_xaxes(title="Migrant population in Austria", showgrid=True, gridwidth=1, gridcolor='grey')
+fig.update_yaxes(title="Million euros in remittances", showgrid=True, gridwidth=1, gridcolor='grey')
+fig.update_layout(title=f'Diaspora population and remittances sent, 2017-2023')
 fig.update_layout(
     autosize=False,
-    width=1200,
-    height=700,
+    width=800,
+    height=600,
     paper_bgcolor='rgba(0,0,0,0)',
     plot_bgcolor='rgba(0,0,0,0)',
-    showlegend=True)
+    showlegend=False,
+    font=dict(
+        family="Inria Sans",
+        size=18
+    )
+)
 # fig.write_html(out_folder + f"\\BMI_praesi_countries.html")
-# fig.write_image(out_folder + f"\\BMI_praesi_countries.png")
+fig.write_image(out_folder + f"\\BMI_praesi_countries.png")
 fig.show()
 #############
 
