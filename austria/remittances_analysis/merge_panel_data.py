@@ -44,6 +44,7 @@ df = df.merge(df_inf, on= ["country", "year"], how = "left")
 
 ##gdp in origin country
 df_gdp = pd.read_excel("C:\\Data\\economic\\annual_gdp_clean.xlsx")
+df_gdp = df_gdp.ffill()
 df = df.merge(df_gdp, on= ["country", "year"], how = "left")
 
 ## gender composition
@@ -88,11 +89,20 @@ def plot_income_country_v_austria(country):
     plt.ylabel('Euros')
     plt.legend()
     plt.show(block=True)
-plot_income_country_v_austria("Bosnia")
+# plot_income_country_v_austria("Bosnia")
 
 df = df.merge(df_inc, on= ["country", "year"], how = "left")
 
-## save
+## clean and save
+# give to all countries in a certain income group the same cost
+for group in tqdm(df_class['group'].unique()):
+    group_countries = df_class[df_class.group == group]["country"].unique().tolist()
+    for year in years:
+        mean_year_group = df_cost.loc[(df_cost.country.isin(group_countries)) & (df_cost.year == year),
+        "pct_cost"].mean()
+        df.loc[(df.country.isin(group_countries)) & (df.year == year) & (df.pct_cost.isna()),
+        "pct_cost"] = mean_year_group
+df = df.dropna() # no inflation data for somalia :(
 df.to_excel("c:\\data\\my_datasets\\remittances_austria_panel.xlsx", index = False)
 
 #
