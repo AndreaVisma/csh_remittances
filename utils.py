@@ -154,3 +154,12 @@ css_colors = css_colors.read()
 css_colors = css_colors.split(", ")
 
 austria_nighbours = ["Germany", "Czechia", "Switzerland", "Italy", "Slovakia", "Hungary", "Slovenia"]
+
+def find_outliers_iqr(df):
+
+   q1=df.quantile(0.25)
+   q3=df.quantile(0.75)
+   IQR=q3-q1
+   outliers = df[((df<(q1-1.5*IQR)) | (df>(q3+1.5*IQR)))]
+
+   return outliers
