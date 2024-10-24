@@ -13,7 +13,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mtick
 import seaborn as sns
-from utils import dict_names, austria_nighbours
+from utils import dict_names, austria_nighbours, find_outliers_iqr
 import plotly.express as px
 import plotly.io as pio
 pio.renderers.default = "browser"
@@ -28,23 +28,32 @@ from tslearn.utils import to_time_series_dataset
 ##remittances and population data
 df = pd.read_excel("c:\\data\\remittances\\austria\\remittances_migrant_pop_austria_2011-2023.xlsx")
 df = df[df["Remittances flow"] == "from Austria"].drop(columns = "Remittances flow")
+df.describe()
 
 ##cost data
 df_cost = pd.read_excel("C:\\Data\\remittances\\remittances_cost_from_euro.xlsx")
 df_cost.rename(columns = {"destination_name" : "country", "period" : "year"}, inplace = True)
 df_cost = df_cost[['year', 'country', 'pct_cost']].groupby(['year', 'country']).mean().reset_index()
+df_cost.describe()
 
 df = df.merge(df_cost, on= ["country", "year"], how = "left")
 
 ##inflation in origin countries
 df_inf = pd.read_excel("C:\\Data\\economic\\annual_inflation_clean.xlsx")
 df_inf.rename(columns = {"Country" : "country"}, inplace = True)
-
+df_inf.describe()
+df_inf['hcpi_cap'] = df_inf['hcpi']
+df_inf.loc[df_inf['hcpi_cap'] > 500, 'hcpi_cap'] = 500
+find_outliers_iqr(df_inf['hcpi'])
+fig = px.box(df_inf, y='hcpi_cap')
+fig.show()
 df = df.merge(df_inf, on= ["country", "year"], how = "left")
 
 ##gdp in origin country
 df_gdp = pd.read_excel("C:\\Data\\economic\\annual_gdp_clean.xlsx")
 df_gdp = df_gdp.ffill()
+fig = px.box(df_gdp, y='gdp')
+fig.show()
 df = df.merge(df_gdp, on= ["country", "year"], how = "left")
 
 ## gender composition
@@ -92,6 +101,13 @@ def plot_income_country_v_austria(country):
 # plot_income_country_v_austria("Bosnia")
 
 df = df.merge(df_inc, on= ["country", "year"], how = "left")
+
+##natural disasters
+df_em = pd.read_excel("c:\\data\\natural_disasters\\emdat_country_type.xlsx")
+df_em.rename(columns = {"Country" : "country", "Start Year" : "year"}, inplace = True)
+df = df.merge(df_em[['country', 'year', 'total affected']], on= ["country", "year"], how = "left")
+df["total affected"].fillna(0, inplace = True)
+df["nat_dist_dummy"] = np.where(df["total affected"] > 10_000, 0, 1)
 
 ## clean and save
 # give to all countries in a certain income group the same cost
