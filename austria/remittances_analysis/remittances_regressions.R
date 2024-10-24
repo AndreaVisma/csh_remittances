@@ -1,3 +1,6 @@
+gc()
+rm(list=ls())
+
 library(readxl)
 library(plm)
 library(lmtest)
@@ -42,12 +45,12 @@ for (i in colnames(df)[3:8]){
 
 
 ## simple regression model
-reg_mod <- lm(mln_euros ~ pop  + income + pct_cost + hcpi + gdp + dep_ratio + neighbour_dummy, data = df)
+reg_mod <- lm(mln_euros ~ pop  + income + pct_cost + hcpi_cap + gdp + dep_ratio + neighbour_dummy, data = df)
 coeftest(reg_mod, vcov. = vcovHC, type = "HC1")
 
 ## estimated values from regression
 df$est_rem <- reg_mod$coefficients[1] + as.double(df$pop * reg_mod$coefficients['pop'] + df$income * reg_mod$coefficients['income'] + 
-                   df$pct_cost * reg_mod$coefficients['pct_cost'] + df$hcpi * reg_mod$coefficients['hcpi'] + 
+                   df$pct_cost * reg_mod$coefficients['pct_cost'] + df$hcpi_cap * reg_mod$coefficients['hcpi_cap'] + 
                    df$gdp * reg_mod$coefficients["gdp"] + df$dep_ratio * reg_mod$coefficients["dep_ratio"] + 
                    df$neighbour_dummy * reg_mod$coefficients["neighbour_dummy"])
 df$err <- df$mln_euros - df$est_rem
@@ -64,7 +67,7 @@ plot(x = as.double(df$mln_euros),
 abline(0,0)
 
 ## simple regression model  with logged variables
-reg_mod <- lm(log(mln_euros) ~ log(pop)  + log(income) + pct_cost + log(hcpi) + log(gdp) + dep_ratio + neighbour_dummy, data = df_log)
+reg_mod <- lm(log(mln_euros) ~ log(pop)  + log(income) + pct_cost + log(hcpi_cap) + log(gdp) + dep_ratio + neighbour_dummy, data = df_log)
 coeftest(reg_mod, vcov. = vcovHC, type = "HC1")
 
 ##test errors distribution
@@ -80,7 +83,7 @@ summary(reg_mod)
 ggcoef_model(reg_mod)
 
 ##try the model with country fixed effects
-fixef_mod <- plm(log(mln_euros) ~ log(pop)  + log(income) + pct_cost + log(hcpi) + log(gdp) + dep_ratio + neighbour_dummy, 
+fixef_mod <- plm(log(mln_euros) ~ log(pop)  + log(income) + pct_cost + log(hcpi_cap) + log(gdp) + dep_ratio + neighbour_dummy, 
                  index = c("country", "year"),
                  data = df_log)
 coeftest(fixef_mod, vcov. = vcovHC, type = "HC1")
