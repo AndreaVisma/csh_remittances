@@ -46,14 +46,14 @@ df_inf['hcpi_cap'] = df_inf['hcpi']
 df_inf.loc[df_inf['hcpi_cap'] > 500, 'hcpi_cap'] = 500
 find_outliers_iqr(df_inf['hcpi'])
 fig = px.box(df_inf, y='hcpi_cap')
-fig.show()
+# fig.show()
 df = df.merge(df_inf, on= ["country", "year"], how = "left")
 
 ##gdp in origin country
-df_gdp = pd.read_excel("C:\\Data\\economic\\annual_gdp_clean.xlsx")
+df_gdp = pd.read_excel("C:\\Data\\economic\\gdp\\annual_gdp_per_capita_clean.xlsx")
 df_gdp = df_gdp.ffill()
 fig = px.box(df_gdp, y='gdp')
-fig.show()
+# fig.show()
 df = df.merge(df_gdp, on= ["country", "year"], how = "left")
 
 ## gender composition
@@ -107,7 +107,7 @@ df_em = pd.read_excel("c:\\data\\natural_disasters\\emdat_country_type.xlsx")
 df_em.rename(columns = {"Country" : "country", "Start Year" : "year"}, inplace = True)
 df = df.merge(df_em[['country', 'year', 'total affected']], on= ["country", "year"], how = "left")
 df["total affected"].fillna(0, inplace = True)
-df["nat_dist_dummy"] = np.where(df["total affected"] > 10_000, 0, 1)
+df["nat_dist_dummy"] = np.where(df["total affected"] > 500_000, 1, 0)
 
 ## clean and save
 # give to all countries in a certain income group the same cost
@@ -119,6 +119,25 @@ for group in tqdm(df_class['group'].unique()):
         df.loc[(df.country.isin(group_countries)) & (df.year == year) & (df.pct_cost.isna()),
         "pct_cost"] = mean_year_group
 df = df.dropna() # no inflation data for somalia :(
+
+##growth rate of remittances
+df = df.sort_values(by=['country', 'year'])
+df['growth_rate_rem'] = df.groupby('country')['mln_euros'].pct_change() * 100  # Multiply by 100 for percentage format
+df['growth_rate_pop'] = df.groupby('country')['pop'].pct_change() * 100  # Multiply by 100 for percentage format
+
+##drop canada because its fucked up
+df = df[df.country != 'Canada']
+
+for thresh in [100_00, 250_000, 500_000, 750_000, 1_000_000]:
+    df["nat_dist_dummy"] = np.where(df["total affected"] > thresh, 1, 0)
+    fig, ax = plt.subplots(figsize = (9,7))
+    sns.scatterplot(df.loc[(df['growth_rate_rem'].abs() < 100) & (df['growth_rate_pop'].abs() < 100)], x = "growth_rate_pop", y = "growth_rate_rem", hue = 'nat_dist_dummy', ax = ax)
+    plt.grid()
+    fig.savefig(f"C:\\git-projects\\csh_remittances\\austria\\plots\\nat_dist_dummy_thresholds\\{thresh}_dummy.png")
+    # plt.show(block = True)
+
+##add year fixed effects
+
 df.to_excel("c:\\data\\my_datasets\\remittances_austria_panel.xlsx", index = False)
 
 #
