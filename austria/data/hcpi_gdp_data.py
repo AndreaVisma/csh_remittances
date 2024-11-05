@@ -34,7 +34,8 @@ df.dropna(inplace = True)
 df.to_excel(folder + "annual_inflation_clean.xlsx", index = False)
 
 #gdp
-file = "global_gdp.xls"
+folder = "C:\\Data\\economic\\gdp\\"
+file = "global_gdp_per_capita.xls"
 
 df = pd.read_excel(folder + file, sheet_name= 'Data', skiprows=3)
 df.drop(columns = ["Country Code", "Indicator Name", "Indicator Code"], inplace = True)
@@ -49,7 +50,7 @@ df["year"] = df["year"].astype(int)
 df = df[df.year >= 2000]
 df = df[~df.country.isna()]
 
-df.to_excel(folder + "annual_gdp_clean.xlsx", index = False)
+df.to_excel(folder + "annual_gdp_per_capita_clean.xlsx", index = False)
 
 def plot_country_inflation(country):
 
