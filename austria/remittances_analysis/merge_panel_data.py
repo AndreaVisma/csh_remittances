@@ -120,13 +120,17 @@ for group in tqdm(df_class['group'].unique()):
         "pct_cost"] = mean_year_group
 df = df.dropna() # no inflation data for somalia :(
 
+##drop canada because its fucked up
+df = df[df.country != 'Canada']
+# and also ethiopia
+df = df[~((df.country == 'Ethiopia') & (df['pop'] == 0))]
+
 ##growth rate of remittances
 df = df.sort_values(by=['country', 'year'])
 df['growth_rate_rem'] = df.groupby('country')['mln_euros'].pct_change() * 100  # Multiply by 100 for percentage format
 df['growth_rate_pop'] = df.groupby('country')['pop'].pct_change() * 100  # Multiply by 100 for percentage format
+df.replace([np.inf, -np.inf], 0, inplace=True)
 
-##drop canada because its fucked up
-df = df[df.country != 'Canada']
 
 for thresh in [100_00, 250_000, 500_000, 750_000, 1_000_000]:
     df["nat_dist_dummy"] = np.where(df["total affected"] > thresh, 1, 0)
