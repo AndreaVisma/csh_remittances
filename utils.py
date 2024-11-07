@@ -3,6 +3,8 @@ import numpy as np
 from numpy import pi, sin, cos
 import re
 import json
+from datetime import date as date_class
+from datetime import timedelta, datetime
 
 dict_names = {}
 with open('c:\\data\\general\\countries_dict.txt',
@@ -163,3 +165,9 @@ def find_outliers_iqr(df):
    outliers = df[((df<(q1-5*IQR)) | (df>(q3+5*IQR)))]
 
    return outliers
+
+def get_quarter(p_date: date_class) -> int:
+    return (p_date.month - 1) // 3 + 1
+def get_last_day_of_the_quarter(p_date: date_class):
+    quarter = get_quarter(p_date)
+    return datetime(p_date.year + 3 * quarter // 12, 3 * quarter % 12 + 1, 1) + timedelta(days=-1)
