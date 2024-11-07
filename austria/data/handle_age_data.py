@@ -89,7 +89,7 @@ df_q = df_q.reset_index()
 df_q['quarter'] = df_q.year.map(get_quarter)
 df_q['year'] = df_q.year.apply(lambda x: x.year)
 
-df_q.to_excel("c:\\data\\population\\austria\\age_nationality_hist_quarterly.xlsx")
+df_q.to_excel("c:\\data\\population\\austria\\age_nationality_hist_quarterly.xlsx", index = False)
 
 ###
 df = df_all.copy()

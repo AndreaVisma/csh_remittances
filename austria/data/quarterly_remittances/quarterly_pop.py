@@ -29,4 +29,4 @@ df_q = df_q.reset_index()
 df_q['quarter'] = df_q.year.map(get_quarter)
 df_q['year'] = df_q.year.apply(lambda x: x.year)
 
-df_q.to_excel("c:\\data\\migration\\austria\\quarterly_population_clean.xlsx")
+df_q.to_excel("c:\\data\\migration\\austria\\quarterly_population_clean.xlsx", index = False)

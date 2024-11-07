@@ -31,7 +31,7 @@ df.dropna(inplace = True)
 df['date'] =  pd.to_datetime(df['y-q'])
 df.drop(columns='y-q', inplace = True)
 
-df.to_excel("c:\\data\\remittances\\austria\\quarterly_remittances_sent_clean.xlsx")
+df.to_excel("c:\\data\\remittances\\austria\\quarterly_remittances_sent_clean.xlsx", index = False)
 
 def plot_remittances_country(country):
 
