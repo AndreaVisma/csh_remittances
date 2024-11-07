@@ -15,6 +15,7 @@ import matplotlib.ticker as mtick
 import seaborn as sns
 from utils import dict_names
 import warnings
+from utils import get_quarter, get_last_day_of_the_quarter
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 
@@ -62,6 +63,35 @@ df_all.dropna(inplace = True)
 
 df_all.to_excel(out_folder + "age_nationality_hist.xlsx", index = False)
 
+## interpolate quarterly age info
+df_age = pd.read_excel("C:\\Data\\population\\austria\\age_nationality_hist.xlsx")
+dependent = ['[0, 4]', '[5, 9]', '[10, 14]', '[65, 69]', '[70, 74]', '[75, 79]',
+             '[80, 84]', '[85, 89]', '[90, 94]', '[95, 99]', '[100]']
+df_age = df_age[df_age.age_group.isin(dependent)][["year", "country", "people"]].groupby(["year", "country"]).sum().reset_index().merge(
+    df_age[~df_age.age_group.isin(dependent)][["year", "country", "people"]].groupby(["year", "country"]).sum().reset_index(),
+    on = ["year", "country"]
+)
+df_age["dep_ratio"] = 100 * df_age.people_x / (df_age.people_x + df_age.people_y)
+df_age = df_age[["year", "country", "dep_ratio"]].sort_values(["country", "year"])
+df_age.year = pd.to_datetime(df_age.year, format="%Y").map(get_last_day_of_the_quarter)
+
+# Prepare DataFrame for quarterly interpolation
+df_q = pd.DataFrame()
+for country in tqdm(df_age['country'].unique()):
+    df_country = df_age[df_age['country'] == country].copy()
+    df_country.set_index(["year"], inplace=True)
+    df_country = df_country.asfreq('Q')
+    df_country['dep_ratio'] = df_country['dep_ratio'].resample("m").interpolate(method="time")
+    df_country['country'] = country
+    df_q = pd.concat([df_q, df_country])
+
+df_q = df_q.reset_index()
+df_q['quarter'] = df_q.year.map(get_quarter)
+df_q['year'] = df_q.year.apply(lambda x: x.year)
+
+df_q.to_excel("c:\\data\\population\\austria\\age_nationality_hist_quarterly.xlsx")
+
+###
 df = df_all.copy()
 def plot_dist_year_country(year, country):
     df_small = df[(df.country == country) & (df.year == year)].copy()
