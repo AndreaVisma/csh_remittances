@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from utils import austria_nighbours
+from utils import austria_nighbours, dict_names
 
 #population
 df_pop = pd.read_excel("c:\\data\\migration\\austria\\quarterly_population_clean.xlsx")
@@ -15,6 +15,11 @@ df = df.merge(df_age, on = ['country', 'year', 'quarter'], how = 'inner')
 
 # dummy for neighbouring countries
 df["neighbour_dummy"] = np.where(df["country"].isin(austria_nighbours), 1, 0)
+
+## income category
+df_class = pd.read_excel("c:\\data\\economic\\income_classification_countries_wb.xlsx", usecols="A:B", skipfooter=49)
+df_class['country'] = df_class['country'].map(dict_names)
+df = df.merge(df_class, on = 'country', how = 'left')
 
 #natural disasters
 df_nd = pd.read_excel("C:\\Data\\natural_disasters\\emdat_country_type_quarterly.xlsx")

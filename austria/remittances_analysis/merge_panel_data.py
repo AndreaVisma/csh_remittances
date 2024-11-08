@@ -77,13 +77,14 @@ df["neighbour_dummy"] = np.where(df["country"].isin(austria_nighbours), 1, 0)
 ## simulated incomes
 incomes_list = pd.read_excel("c:\\data\\economic\\austria\\avg_annual_hh_income.xlsx")["income"].tolist()
 df_class = pd.read_excel("c:\\data\\economic\\income_classification_countries_wb.xlsx", usecols="A:B", skipfooter=49)
-dict_income = {'High income' : 1, 'Upper middle income' : 0.85, 'Lower middle income' : 0.75, 'Low income' : 0.65}
-df_class['group'] = df_class['group'].map(dict_income)
 df_class['country'] = df_class['country'].map(dict_names)
+df = df.merge(df_class, on = 'country', how = 'left')
+dict_income = {'High income' : 1, 'Upper middle income' : 0.85, 'Lower middle income' : 0.75, 'Low income' : 0.65}
+df_class['mult'] = df_class['group'].map(dict_income)
 years = df.year.unique().tolist()
 df_inc = pd.DataFrame([])
 for country in tqdm(df.country.unique()):
-    mult_country = df_class[df_class.country == country]["group"].item()
+    mult_country = df_class[df_class.country == country]["mult"].item()
     incomes = [np.random.poisson(incomes_list[i] * mult_country) for i in range(len(incomes_list))]
     df_country = pd.DataFrame({"year" : years, "income" : incomes})
     df_country["country"] = country
