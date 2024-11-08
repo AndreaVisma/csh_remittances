@@ -29,6 +29,11 @@ df_nd = df_nd[['country', 'year', 'quarter', 'total affected']].groupby(['countr
 df = df.merge(df_nd, on = ['country', 'year', 'quarter'], how = 'left')
 df['total affected'] = df['total affected'].fillna(0)
 
+##growth rate of remittances
+df = df.sort_values(by=['country', 'year', 'quarter'])
+df['growth_rate_rem'] = df.groupby('country')['remittances'].pct_change() * 100  # Multiply by 100 for percentage format
+df.replace([np.inf, -np.inf], 0, inplace=True)
+
 df.dropna(inplace =True)
 
 df.to_excel("c:\\data\\my_datasets\\remittances_austria_panel_quarterly.xlsx", index = False)
