@@ -10,8 +10,8 @@ import pandas as pd
 from tqdm import tqdm
 from scipy.optimize import minimize, dual_annealing
 import matplotlib.pyplot as plt
+from austria.bottom_up_simulations.plots.plot_results import *
 
-i = 0
 
 ### global values
 base_prob = 0.012
@@ -50,12 +50,17 @@ def simulate_all_countries(base_prob, beta_1, beta_2, beta_3,
             'country': row['country'],
             'sim_remittances': total_remittance
         })
-    return pd.DataFrame(aggregate_remittances)
+    results_df = pd.DataFrame(aggregate_remittances)
+    results_df['obs_remittances'] = df['remittances']
+    results_df['sq_err'] = (results_df['sim_remittances'] - results_df['obs_remittances']) ** 2
+    results_df['tot_sum_sq'] = (results_df['obs_remittances'] - results_df['obs_remittances'].mean()) ** 2
+    return results_df
 
 # Convert aggregate results to DataFrame
 results_df = simulate_all_countries(base_prob, beta_1, beta_2, beta_3,
                            beta_4, mean_remittance)
-print(results_df)
+plot_all_results(results_df)
+plot_results_country(results_df, 'Germany')
 
 def calibration_function(params):
     base_prob, beta_1, beta_2, beta_3, beta_4, mean_remittance = params
@@ -88,18 +93,7 @@ average remittances in a year: {round(1_000_000 * result.x[5], 5)} EUR""")
 opt_param = result.x
 results_df = simulate_all_countries(opt_param[0], opt_param[1], opt_param[2], opt_param[3],
                            opt_param[4], opt_param[5])
-results_df['obs_remittances'] = df['remittances']
-results_df['sq_err'] = (results_df['sim_remittances'] - results_df['obs_remittances']) ** 2
-results_df['tot_sum_sq'] = (results_df['obs_remittances'] - results_df['obs_remittances'].mean()) ** 2
 
 print(f"R squared: {1 - (results_df['sq_err'].sum() / results_df['tot_sum_sq'].sum())}")
-
-fig, ax = plt.subplots(figsize = (9,6))
-ax.scatter(results_df.obs_remittances, results_df.sim_remittances)
-ax.plot(np.linspace(0, 140, 140), np.linspace(0, 140, 140), color = 'red')
-plt.xlabel('observed remittances')
-plt.ylabel('simulated remittances')
-plt.grid()
-plt.show(block = True)
 
 calibration_function(opt_param)
