@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+from tqdm import tqdm
 from utils import austria_nighbours, dict_names
 
 #population
@@ -20,6 +21,18 @@ df["neighbour_dummy"] = np.where(df["country"].isin(austria_nighbours), 1, 0)
 df_class = pd.read_excel("c:\\data\\economic\\income_classification_countries_wb.xlsx", usecols="A:B", skipfooter=49)
 df_class['country'] = df_class['country'].map(dict_names)
 df = df.merge(df_class, on = 'country', how = 'left')
+
+##GDP
+df_gdp = pd.read_excel("c:\\data\\economic\\gdp\\quarterly_gdp_clean.xlsx")
+for year in tqdm(df_gdp.year.unique(),
+                          total = len(df_gdp.year.unique())):
+    df_year = df_gdp[df_gdp.year == year]
+    for quarter in df_year.quarter.unique():
+        df_gdp.loc[(df_gdp.year == year) & (df_gdp.quarter == quarter), 'delta_gdp'] = (
+                df_gdp.loc[(df_gdp.year == year) & (df_gdp.quarter == quarter), 'gdp_per_capita'] -
+                df_gdp.loc[(df_gdp.year == year) & (df_gdp.quarter == quarter) & (df_gdp.country == 'Austria'), 'gdp_per_capita'].item())
+df = df.merge(df_gdp, on = ['country', 'year', 'quarter'], how = 'left')
+
 
 #natural disasters
 df_nd = pd.read_excel("C:\\Data\\natural_disasters\\emdat_country_type_quarterly.xlsx")
