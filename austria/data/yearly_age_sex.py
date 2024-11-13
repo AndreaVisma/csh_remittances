@@ -2,6 +2,7 @@ import pandas as pd
 import os
 from tqdm import tqdm
 import re
+import numpy as np
 
 folder = "C:\\users\\andrea vismara\\downloads\\age_sex\\"
 
@@ -17,6 +18,7 @@ for file in tqdm(files):
                   var_name='country', value_name='people')
     df_ = df_.replace('up to 4 years old', '0 to 4 years old')
     df_['age_group'] = df_['age_group'].apply(lambda x: [int(s) for s in re.findall(r'\b\d+\b', x)])
+    df_['mean_age'] = df_['age_group'].apply(np.mean)
     df = pd.concat([df, df_])
 
 df.to_excel("c:\\data\\population\\austria\\age_sex_all_clean.xlsx", index = False)
