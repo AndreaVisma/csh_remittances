@@ -5,10 +5,23 @@ def plot_all_results(df):
 
     fig, ax = plt.subplots(figsize=(9, 6))
     ax.scatter(df.obs_remittances, df.sim_remittances)
-    ax.plot(np.linspace(0, 140, 140), np.linspace(0, 140, 140), color='red')
+    ax.plot(np.linspace(0, max(df.obs_remittances), 100), np.linspace(0, max(df.obs_remittances), 100), color='red')
     plt.xlabel('observed remittances')
     plt.ylabel('simulated remittances')
     plt.grid()
+    plt.show(block=True)
+
+def plot_all_results_log(df):
+
+    fig, ax = plt.subplots(figsize=(9, 6))
+    ax.scatter(df.obs_remittances, df.sim_remittances)
+    ax.plot(np.linspace(0, max(df.obs_remittances), 100), np.linspace(0, max(df.obs_remittances), 100), color='red')
+    plt.xlabel('observed remittances')
+    plt.ylabel('simulated remittances')
+    plt.yscale('log')
+    plt.xscale('log')
+    plt.grid()
+    plt.title('Observed v. simulated remittances in log scale')
     plt.show(block=True)
 
 def plot_results_country(df, country):
