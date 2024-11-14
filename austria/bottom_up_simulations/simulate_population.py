@@ -1,5 +1,5 @@
 """
-Script: simulation_model.py
+Script: simulate_population.py
 Author: Andrea Vismara
 Date: 12/11/2024
 Description: simulate all the diaspora populations over the years
@@ -134,5 +134,3 @@ def simulate_populations(df_dem):
 agents_df = simulate_populations(df_dem)
 
 agents_df.to_pickle("c:\\data\\population\\austria\\simulated_migrants_populations_2010-2024.pkl")
-
-# df = pd.read_pickle("c:\\data\\population\\austria\\simulated_migrants_populations_2010-2024.pkl")
