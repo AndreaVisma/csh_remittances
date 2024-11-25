@@ -36,11 +36,40 @@ df = df.merge(df_gdp, on = ['country', 'year', 'quarter'], how = 'left')
 
 #natural disasters
 df_nd = pd.read_excel("C:\\Data\\natural_disasters\\emdat_country_type_quarterly.xlsx")
-df_nd.rename(columns = {'Country' : 'country', 'Start Year': 'year'}, inplace = True)
-df_nd = df_nd[['country', 'year', 'quarter', 'total affected']].groupby(['country', 'year', 'quarter']).sum().reset_index()
+#clean dates
+df_nd[['Start Year','Start Month', 'Start Day']] = (
+    df_nd[['Start Year','Start Month', 'Start Day']].fillna(1).astype(int))
+df_nd.rename(columns = dict(zip(['Start Year','Start Month', 'Start Day'],
+                              ["year", "month", "day"])), inplace = True)
+df_nd["date_start"] = pd.to_datetime(df_nd[["year", "month", "day"]])
+df_nd.drop(columns = ["year", "month", "day", "quarter"], inplace = True)
+df_nd['year'] = df_nd['date_start'].dt.year
+df_nd['quarter'] = df_nd['date_start'].dt.quarter
+df_nd['quarter_after_1_month'] = df_nd['date_start'].apply(lambda x: 1 + (x.month)//3)
+df_nd.rename(columns = {'Country' : 'country'}, inplace = True)
+## country population
+df_pop_country = pd.read_excel("c:\\data\\population\\population_by_country_wb_clean.xlsx")
+#merge
+df_nd = df_nd.merge(df_pop_country, on=['country', 'year'], how = 'left')
 
-df = df.merge(df_nd, on = ['country', 'year', 'quarter'], how = 'left')
-df['total affected'] = df['total affected'].fillna(0)
+#percentage affected dataframe
+df_nd_pct = df_nd.copy()
+cols = ['Animal incident', 'Drought', 'Earthquake', 'Epidemic',
+       'Extreme temperature', 'Flood', 'Glacial lake outburst flood', 'Impact',
+       'Infestation', 'Mass movement (dry)', 'Mass movement (wet)', 'Storm',
+       'Volcanic activity', 'Wildfire', 'total affected']
+for col in cols:
+    df_nd_pct[col] = 100 * df_nd_pct[col] / df_nd_pct['population']
+df_nd_pct.dropna(inplace = True)
+cols = ['country', 'Animal incident', 'Drought', 'Earthquake', 'Epidemic',
+       'Extreme temperature', 'Flood', 'Glacial lake outburst flood', 'Impact',
+       'Infestation', 'Mass movement (dry)', 'Mass movement (wet)', 'Storm',
+       'Volcanic activity', 'Wildfire', 'total affected', 'year',
+       'quarter']
+df_group = df_nd_pct[cols].groupby(['country', 'year', 'quarter']).sum().reset_index()
+df = df.merge(df_group, left_on = ['country', 'year', 'quarter'],
+                  right_on = ['country', 'year', 'quarter'], how = 'left')
+df.fillna(0, inplace = True)
 
 ##growth rate of remittances
 df = df.sort_values(by=['country', 'year', 'quarter'])

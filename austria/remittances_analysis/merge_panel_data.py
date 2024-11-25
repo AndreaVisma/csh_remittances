@@ -104,11 +104,37 @@ def plot_income_country_v_austria(country):
 df = df.merge(df_inc, on= ["country", "year"], how = "left")
 
 ##natural disasters
-df_em = pd.read_excel("c:\\data\\natural_disasters\\emdat_country_type.xlsx")
-df_em.rename(columns = {"Country" : "country", "Start Year" : "year"}, inplace = True)
-df = df.merge(df_em[['country', 'year', 'total affected']], on= ["country", "year"], how = "left")
-df["total affected"].fillna(0, inplace = True)
-df["nat_dist_dummy"] = np.where(df["total affected"] > 500_000, 1, 0)
+df_nd = pd.read_excel("C:\\Data\\natural_disasters\\emdat_country_type_quarterly.xlsx")
+#clean dates
+df_nd[['Start Year','Start Month', 'Start Day']] = (
+    df_nd[['Start Year','Start Month', 'Start Day']].fillna(1).astype(int))
+df_nd.rename(columns = dict(zip(['Start Year','Start Month', 'Start Day'],
+                              ["year", "month", "day"])), inplace = True)
+df_nd["date_start"] = pd.to_datetime(df_nd[["year", "month", "day"]])
+df_nd.drop(columns = ["year", "month", "day", "quarter"], inplace = True)
+df_nd['year'] = df_nd['date_start'].dt.year
+df_nd.rename(columns = {'Country' : 'country'}, inplace = True)
+## country population
+df_pop_country = pd.read_excel("c:\\data\\population\\population_by_country_wb_clean.xlsx")
+#merge
+df_nd = df_nd.merge(df_pop_country, on=['country', 'year'], how = 'left')
+
+#percentage affected dataframe
+df_nd_pct = df_nd.copy()
+cols = ['Animal incident', 'Drought', 'Earthquake', 'Epidemic',
+       'Extreme temperature', 'Flood', 'Glacial lake outburst flood', 'Impact',
+       'Infestation', 'Mass movement (dry)', 'Mass movement (wet)', 'Storm',
+       'Volcanic activity', 'Wildfire', 'total affected']
+for col in cols:
+    df_nd_pct[col] = 100 * df_nd_pct[col] / df_nd_pct['population']
+df_nd_pct.dropna(inplace = True)
+cols = ['country', 'Animal incident', 'Drought', 'Earthquake', 'Epidemic',
+       'Extreme temperature', 'Flood', 'Glacial lake outburst flood', 'Impact',
+       'Infestation', 'Mass movement (dry)', 'Mass movement (wet)', 'Storm',
+       'Volcanic activity', 'Wildfire', 'total affected', 'year']
+df_group = df_nd_pct[cols].groupby(['country', 'year']).sum().reset_index()
+df = df.merge(df_group, on = ['country', 'year'], how = 'left')
+df.fillna(0, inplace = True)
 
 ## clean and save
 # give to all countries in a certain income group the same cost
