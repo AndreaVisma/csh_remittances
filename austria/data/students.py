@@ -17,6 +17,8 @@ df_stud.country = df_stud.country.map(dict_names)
 df_stud = df_stud.replace('-', np.nan)
 df_stud.dropna(inplace = True)
 
+df_stud.to_excel("c:\\data\\population\\austria\\students_by_origin_clean.xlsx", index = False)
+
 ### remittances
 df_rem = pd.read_excel("c:\\data\\my_datasets\\remittances_austria_panel_quarterly.xlsx")
 df_rem = df_rem.merge(df_stud, on = ['country', 'year', 'quarter'], how = 'left')
@@ -25,8 +27,6 @@ for country in tqdm(df_rem.country.unique()):
 df_rem['students'].fillna(0, inplace = True)
 df_rem['pct_students'] = 100 * df_rem['students'] / df_rem['population']
 df_rem['pct_students'] = df_rem['pct_students'].clip(0,100)
-
-df_rem.to_excel("c:\\data\\my_datasets\\remittances_austria_panel_quarterly.xlsx", index = False)
 
 
 countries = ['Italy', 'Germany', 'Switzerland', 'Greece', 'Spain', 'Belgium']

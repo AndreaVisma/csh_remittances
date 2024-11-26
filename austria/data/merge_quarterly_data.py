@@ -78,4 +78,13 @@ df.replace([np.inf, -np.inf], 0, inplace=True)
 
 df.dropna(inplace =True)
 
+##students
+df_stud = pd.read_excel("c:\\data\\population\\austria\\students_by_origin_clean.xlsx")
+df = df.merge(df_stud, on = ['country', 'year', 'quarter'], how = 'left')
+for country in tqdm(df.country.unique()):
+    df.loc[df.country == country, 'students'] = df.loc[df_rem.country == country, 'students'].ffill()
+df['students'].fillna(0, inplace = True)
+df['pct_students'] = 100 * df['students'] / df['population']
+df['pct_students'] = df['pct_students'].clip(0,100)
+
 df.to_excel("c:\\data\\my_datasets\\remittances_austria_panel_quarterly.xlsx", index = False)

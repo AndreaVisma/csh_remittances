@@ -11,7 +11,6 @@ from tqdm import tqdm
 
 ## import quarterly data
 df = pd.read_excel("c:\\data\\my_datasets\\remittances_austria_panel_quarterly.xlsx")
-# df_low = df[df['group'] == 'Low income'].copy()
 
 ## import age and sex data
 df_dem = pd.read_excel("c:\\data\\population\\austria\\age_sex_all_clean.xlsx")
