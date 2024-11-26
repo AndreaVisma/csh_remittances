@@ -1,6 +1,14 @@
+"""
+Script: simulate_agents_optimised.py
+Author: Andrea Vismara
+Date: 26/11/2024
+Description: simulate the remittance sending process for diasporas over the quarter
+"""
+
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
+import seaborn as sns
 import time
 import itertools
 import matplotlib.pyplot as plt
@@ -22,19 +30,21 @@ for year in tqdm(inflation.year.unique()[1:]):
 inflation['hcpi'] = inflation['hcpi'] / 100
 
 # Define parameters for probability function
-age_param = -0.002
-age_param_2 = 0.15
-sex_param =0.008
-dict_quarter_2 = {1 : 0, 2 : 0.3, 3 : -0.11, 4 : 0.26} # dictionary for quarters boosts
-disaster_param_2 = 0.0042 # parameter for disasters
-neighbour_param_2 = 0.34 #parameter for neighbours
-germany_param_2 = -0.05
-gdp_param_2 = -0.96e-05
+c_val = -2
+age_param = -0.0015
+age_param_2 = +0.1
+sex_param =0.15
+dict_quarter_2 = {1 : 0, 2 : 0.5, 3 : 0.06, 4 : 0.4} # dictionary for quarters boosts
+disaster_param_2 = 0.5 # parameter for disasters
+neighbour_param_2 = 1 #parameter for neighbours
+germany_param_2 = -0.8
+gdp_param_2 = -0.16e-04
+students_param = -0.05
 dict_group_2 = {'Low income':-0.61, 'Lower middle income':-0.23,
               'Upper middle income':-0.15, 'High income':0.04}
 
 cols = ['country', 'year', 'quarter', 'total affected',
-        'neighbour_dummy', 'gdp_per_capita', 'group']
+        'neighbour_dummy', 'gdp_per_capita', 'group', 'pct_students']
 
 ## load simulated population
 df = pd.read_pickle("c:\\data\\population\\austria\\simulated_migrants_populations_2010-2024.pkl")
@@ -42,7 +52,11 @@ df = df[fixed_vars + [str(x) for x in range(2010, 2026)]]
 df.columns = fixed_vars + [str(x) for x in range(2010, 2026)]
 df = pd.melt(df, id_vars=fixed_vars, value_vars=df.columns[3:],
              value_name='age', var_name='year')
-df['year'] = df['year'].astype(int) -1
+df['year'] = df['year'].astype(int)
+df_all = df.loc[df.index.repeat(4)].reset_index(drop=True)
+quarters = np.tile([1, 2, 3, 4], len(df_all) // 4)
+df_all['quarter'] = quarters
+
 
 ## load remittances info
 df_rem_quarter = pd.read_excel("c:\\data\\my_datasets\\remittances_austria_panel_quarterly.xlsx")
@@ -55,14 +69,19 @@ df_rem_quarter['probability'] = df_rem_quarter['exp_population'] / df_rem_quarte
 
 ####
 ## only big senders??
-df_rem_quarter = df_rem_quarter[df_rem_quarter.remittances > 100_000]
+# df_rem_quarter = df_rem_quarter[df_rem_quarter.remittances > 10_000]
 ####
 
-# Optimized probability calculation without np.vectorize
+##merge everything for the total simulation
+df_all = pd.merge(df_all, df_rem_quarter[cols],
+                             on=['country', 'year', 'quarter'], how='right')
+df_all = df_all[df_all.year > 2012]
+
+# Optimized probability calculation
 def calculate_probability_exponential(
-        age, sex, quarter, total_affected,
+        age, sex, quarters, total_affected,
         neighbour_dummy, country_is_germany,
-        gdp_per_capita, group_values
+        gdp_per_capita, group_values, students
 ):
     # Convert categorical variables to numerical
     sex_val = np.where(sex == 'male', 1, 0)
@@ -73,26 +92,28 @@ def calculate_probability_exponential(
 
     # Calculate the exponent
     exponent = (
+            c_val +
             age_param * np.power(age, 2) +
             age_param_2 * age +
             sex_param * sex_val +
             disaster_param_2 * total_affected +
             neighbour_param_2 * neighbour_dummy +
-            dict_quarter_2[quarter] +
+            quarters +
             germany_param_2 * country_val +
             gdp_param_2 * gdp_per_capita +
-            group_vals
+            group_vals +
+            students * students_param
     )
 
     # Compute the probability
-    base_prob = 1 / (1 + np.exp(exponent))
+    base_prob = np.exp(exponent) / (1 + np.exp(exponent))
     # Ensure probabilities are within [0, 1]
     base_prob = np.clip(base_prob, 0, 1)
     return base_prob
 
 
 def simulate_decisions_one_period(year, quarter):
-    df_period = df[df.year == year].copy().dropna()
+    df_period = df[(df.year == year)].copy().dropna()
     df_period['quarter'] = quarter
     df_period = pd.merge(df_period, df_rem_quarter[cols],
                          on=['country', 'year', 'quarter'], how='left')
@@ -105,13 +126,15 @@ def simulate_decisions_one_period(year, quarter):
     neighbour_dummy = df_period['neighbour_dummy'].values
     country_is_germany = df_period['country'] == 'Germany'
     gdp_per_capita = df_period['gdp_per_capita'].values
+    students = df_period['pct_students'].values
     group_values = df_period['group'].values
+    quarters = [dict_quarter_2[quarter]] * len(df_period)
 
     # Calculate probabilities
     probability = calculate_probability_exponential(
-        age, sex, quarter, total_affected,
+        age, sex, quarters, total_affected,
         neighbour_dummy, country_is_germany,
-        gdp_per_capita, group_values
+        gdp_per_capita, group_values, students
     )
 
     # Simulate decisions using numpy
@@ -126,7 +149,7 @@ def simulate_decisions_one_period(year, quarter):
 
     # Generate random amounts sent (assuming mean 450)
     # Note: np.random.normal(450, 0, size) will all be 450, consider using a different distribution
-    amounts_sent = np.random.normal(450, 100, len(totals))  # Adjust std as needed
+    amounts_sent = np.random.normal(450, 0, len(totals))  # Adjust std as needed
     totals['sim_remittances'] = totals['decision'] * amounts_sent
 
     # Merge with observed remittances
@@ -151,7 +174,107 @@ def simulate_decisions_one_period(year, quarter):
 
     return df_period, totals
 
+def simulate_all_decisions():
+    # Extract necessary arrays
+    age = df_all['age'].values
+    sex = df_all['sex'].values
+    total_affected = df_all['total affected'].values
+    neighbour_dummy = df_all['neighbour_dummy'].values
+    country_is_germany = df_all['country'] == 'Germany'
+    gdp_per_capita = df_all['gdp_per_capita'].values
+    group_values = df_all['group'].values
+    students = df_all['pct_students'].values
+    quarters = df_all['quarter'].map(dict_quarter_2).values
 
+    # Calculate probabilities
+    probability = calculate_probability_exponential(
+        age, sex, quarters, total_affected,
+        neighbour_dummy, country_is_germany,
+        gdp_per_capita, group_values, students
+    )
+
+    # Simulate decisions using numpy
+    np.nan_to_num(probability, copy = False)
+    decision = np.random.binomial(1, probability)
+
+    # Assign back to DataFrame
+    df_all['probability'] = probability
+    df_all['decision'] = decision
+
+    # Calculate totals
+    totals = df_all.groupby(['country', 'year', 'quarter'])['decision'].sum().reset_index()
+
+    # Generate random amounts sent (assuming mean 450)
+    # Note: np.random.normal(450, 0, size) will all be 450, consider using a different distribution
+    amounts_sent = np.random.normal(450, 0, len(totals))  # Adjust std as needed
+    totals['sim_remittances'] = totals['decision'] * amounts_sent
+
+    # Merge with observed remittances
+    observed = df_rem_quarter[['country', 'remittances', 'population', 'year', 'quarter']].copy()
+    totals = pd.merge(totals, observed, on=['country', 'year', 'quarter'], how='left')
+
+    # Calculate error
+    totals['error'] = np.abs(totals['remittances'] - totals['sim_remittances'])
+
+    # Rename columns
+    totals.rename(columns={'remittances': 'obs_remittances'}, inplace=True)
+
+    # Calculate needed_amount_sent, handle division by zero
+    totals['needed_amount_sent'] = np.where(
+        totals['decision'] > 0,
+        totals['obs_remittances'] / totals['decision'],
+        0  # or some appropriate value when decision is zero
+    )
+
+    return totals
+
+####
+# all data results
+totals = simulate_all_decisions()
+plot_all_results_log(totals)
+
+mean_error = totals[['error', 'obs_remittances']].mean()
+mean_error['relative_error'] = 100 * mean_error['error'] / mean_error['obs_remittances']
+print(mean_error['relative_error'].item())
+
+r_square = 1 - sum((totals.obs_remittances - totals.sim_remittances)**2)/sum((totals.obs_remittances - totals.obs_remittances.mean())**2)
+print(r_square)
+
+totals['quarter'] = totals['quarter'].astype(str)
+totals['year'] = totals['year'].astype(str)
+fig = px.scatter(totals, x = 'obs_remittances', y='sim_remittances',
+                 color = 'country', log_x = False, log_y = False)
+fig.add_scatter(x = np.linspace(0,25_000_000, 100),
+              y = np.linspace(0,25_000_000, 100))
+fig.show()
+####
+# test the effects of individual parameters
+param_values = [0.2, 0, -0.2, -0.4, -0.6]
+all_results = pd.DataFrame()
+for param in tqdm(param_values):
+    students_param = param
+    _, totals = simulate_decisions_one_period(2022, 3)
+    totals['year'] = 2022
+    totals['quarter'] = str(3)
+    totals['param_value'] = str(param)
+    all_results = pd.concat([all_results, totals])
+all_results['pct_population_sending'] = 100 * all_results['decision'] / all_results['population']
+totals = all_results.copy()
+totals['pct_population_sending'] = 100 * totals['decision'] / totals['population']
+
+fig, ax = plt.subplots(figsize=(9, 6))
+sns.scatterplot(data = totals, x = 'obs_remittances', y = 'sim_remittances', hue='param_value')
+ax.plot(np.linspace(0, max(totals.obs_remittances), 100),
+        np.linspace(0, max(totals.obs_remittances), 100), color='red')
+plt.xlabel('observed remittances')
+plt.ylabel('simulated remittances')
+plt.yscale('log')
+plt.xscale('log')
+plt.grid()
+plt.title('Observed v. simulated remittances in log scale')
+plt.show(block=True)
+
+####
 ########################
 # one quarter simulation, check probability of sending across whole population
 #######################
@@ -167,6 +290,7 @@ def probability_distribution_quarter_year(year, quarter):
             label = 'real values')
     plt.grid()
     plt.legend()
+    plt.title('Population probability distribution profile')
     plt.show(block = True)
 
 probability_distribution_quarter_year(2022, 2)
@@ -187,6 +311,7 @@ def plot_needed_incomes_for_perfect_dist(year, quarter):
     fig.show()
 
 plot_needed_incomes_for_perfect_dist(2022, 2)
+
 ###########
 # one year simulations, plot results
 ###########
@@ -206,6 +331,9 @@ mean_error = totals[['error', 'obs_remittances']].mean()
 mean_error['relative_error'] = 100 * mean_error['error'] / mean_error['obs_remittances']
 print(mean_error['relative_error'].item())
 
+r_square = 1 - sum((totals.obs_remittances - totals.sim_remittances)**2)/sum((totals.obs_remittances - totals.obs_remittances.mean())**2)
+print(r_square)
+
 totals['pct_population_sending'].hist(bins = 20)
 plt.title('Distribution of percentage of each diaspora population\nwhich is sending remittances')
 plt.xlabel('Percentage of whole diaspora')
@@ -219,6 +347,97 @@ fig.add_scatter(x = np.linspace(0,50_000_000, 100),
 fig.show()
 
 ############################
+# optimisation
+from scipy.optimize import minimize
+
+# Define the parameters to calibrate
+params = ['age_param', 'age_param_2', 'sex_param',
+          'disaster_param_2', 'neighbour_param_2',
+          'germany_param_2', 'gdp_param_2']
+
+# Initial guess for parameters
+initial_params = {
+    'age_param': -0.001,
+    'age_param_2': 0.1,
+    'sex_param': 0.008,
+    'disaster_param_2': 0.0042,
+    'neighbour_param_2': 0.34,
+    'germany_param_2': -0.05,
+    'gdp_param_2': -0.96e-05,
+}
+# Objective function to minimize
+def objective_function(x):
+    # Map parameters to their names
+    global initial_params
+    params_dict = dict(zip(params, x))
+
+    # Update global variables or pass them to the function
+    # Here, for simplicity, we'll update the global variables
+    global age_param, age_param_2, sex_param, disaster_param_2, neighbour_param_2, germany_param_2, gdp_param_2
+    age_param = params_dict['age_param']
+    age_param_2 = params_dict['age_param_2']
+    sex_param = params_dict['sex_param']
+    disaster_param_2 = params_dict['disaster_param_2']
+    neighbour_param_2 = params_dict['neighbour_param_2']
+    germany_param_2 = params_dict['germany_param_2']
+    gdp_param_2 = params_dict['gdp_param_2']
+
+    # Simulate decisions for all periods and calculate total error
+    total_error = 0
+    for year in [2019]:
+        for quarter in tqdm(df_rem_quarter.quarter.unique()):
+            _, totals = simulate_decisions_one_period(year, quarter)
+            total_error += totals['error'].sum()
+
+    return total_error
+
+
+# Perform optimization
+result = minimize(objective_function, x0=list(initial_params.values()),
+                  method='L-BFGS-B', bounds=[(-1, 1) for _ in params], options = {'maxiter':100})
+
+# Update parameters with optimized values
+optimized_params = dict(zip(params, result.x))
+print("Optimized Parameters:", optimized_params)
+
+#plot optimised params results
+age_param = optimized_params['age_param']
+age_param_2 = optimized_params['age_param_2']
+sex_param = optimized_params['sex_param']
+disaster_param_2 = optimized_params['disaster_param_2']
+neighbour_param_2 = optimized_params['neighbour_param_2']
+germany_param_2 = optimized_params['germany_param_2']
+gdp_param_2 = optimized_params['gdp_param_2']
+
+all_results = pd.DataFrame()
+for quarter in tqdm([1,2,3,4]):
+    df_period, totals = simulate_decisions_one_period(2019, quarter)
+    totals['year'] = 2019
+    totals['quarter'] = str(quarter)
+    all_results = pd.concat([all_results, totals])
+all_results['pct_population_sending'] = 100 * all_results['decision'] / all_results['population']
+totals = all_results.copy()
+totals['pct_population_sending'] = 100 * totals['decision'] / totals['population']
+
+plot_all_results_log(totals)
+
+mean_error = totals[['error', 'obs_remittances']].mean()
+mean_error['relative_error'] = 100 * mean_error['error'] / mean_error['obs_remittances']
+print(mean_error['relative_error'].item())
+
+totals['pct_population_sending'].hist(bins = 20)
+plt.title('Distribution of percentage of each diaspora population\nwhich is sending remittances')
+plt.xlabel('Percentage of whole diaspora')
+plt.ylabel('Frequency')
+plt.show(block = True)
+
+fig = px.scatter(all_results[all_results.country == 'Italy'], x = 'obs_remittances', y='sim_remittances',
+                 color = 'quarter', log_x = True, log_y = True)
+fig.add_scatter(x = np.linspace(0,50_000_000, 100),
+              y = np.linspace(0,50_000_000, 100))
+fig.show()
+##############################
+
 # iteration over parameter space
 # Define parameter ranges
 n = 4
