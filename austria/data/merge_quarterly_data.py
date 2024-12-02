@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
-from utils import austria_nighbours, dict_names
+from utils import austria_nighbours, dict_names, euro_area
 
 #population
 df_pop = pd.read_excel("c:\\data\\migration\\austria\\quarterly_population_clean.xlsx")
@@ -87,4 +87,37 @@ df['students'].fillna(0, inplace = True)
 df['pct_students'] = 100 * df['students'] / df['population']
 df['pct_students'] = df['pct_students'].clip(0,100)
 
+##cost data
+df_cost = pd.read_excel("C:\\Data\\remittances\\remittances_cost_from_euro.xlsx")
+df_cost.rename(columns = {"destination_name" : "country", "period" : "year"}, inplace = True)
+df_cost = df_cost[['year', 'country', 'pct_cost']].groupby(['year', 'country']).mean().reset_index()
+df_cost.describe()
+
+df = df.merge(df_cost, on= ["country", "year"], how = "left")
+# give to all countries in a certain income group the same cost
+for group in tqdm(df_class['group'].unique()):
+    group_countries = df_class[df_class.group == group]["country"].unique().tolist()
+    for year in df.year.unique():
+        mean_year_group = df_cost.loc[(df_cost.country.isin(group_countries)) & (df_cost.year == year),
+        "pct_cost"].mean()
+        df.loc[(df.country.isin(group_countries)) & (df.year == year) & (df.pct_cost.isna()),
+        "pct_cost"] = mean_year_group
+#euro area countries have no cost
+df.loc[df.country.isin(euro_area), "pct_cost"] = 0
+
+##inflation
+df_inf = pd.read_excel("C:\\Data\\economic\\annual_inflation_clean.xlsx")
+df_inf.rename(columns = {"Country" : "country"}, inplace = True)
+df_inf.loc[df_inf['hcpi'] > 500, 'hcpi'] = 500
+df_inf['quarter'] = 1
+df = df.merge(df_inf, on= ["country", "year", "quarter"], how = "left")
+df = df[df.year > 2010]
+## interpolate inflation
+for country in tqdm(df.country.unique()):
+    df.loc[df.country == country, "hcpi"] = df.loc[df.country == country, "hcpi"].interpolate()
+
+## gdp growth rate
+df['growth_rate_gdp'] = df.groupby('country')['gdp_per_capita'].pct_change() * 100
+
+df.dropna(inplace = True)
 df.to_excel("c:\\data\\my_datasets\\remittances_austria_panel_quarterly.xlsx", index = False)
