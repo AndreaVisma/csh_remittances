@@ -6,6 +6,10 @@ import json
 from datetime import date as date_class
 from datetime import timedelta, datetime
 
+euro_area = ['Belgium', 'Germany', 'Ireland', 'Spain', 'France', 'Italy', 'Luxembourg',
+             'Netherlands', 'Austria', 'Portugal', 'Finland', 'Greece', 'Slovenia',
+             'Cyprus', 'Malta', 'Slovakia', 'Estonia', 'Latvia', 'Lithuania']
+
 dict_names = {}
 with open('c:\\data\\general\\countries_dict.txt',
           encoding='utf-8') as f:
