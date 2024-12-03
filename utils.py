@@ -9,6 +9,13 @@ from datetime import timedelta, datetime
 euro_area = ['Belgium', 'Germany', 'Ireland', 'Spain', 'France', 'Italy', 'Luxembourg',
              'Netherlands', 'Austria', 'Portugal', 'Finland', 'Greece', 'Slovenia',
              'Cyprus', 'Malta', 'Slovakia', 'Estonia', 'Latvia', 'Lithuania']
+europe = ["Albania","Andorra","Armenia","Austria","Azerbaijan","Belarus","Belgium",
+          "Bosnia and Herzegovina","Bulgaria","Croatia","Cyprus","Czech Republic","Denmark","Estonia",
+          "Finland","France","Georgia","Germany","Greece","Hungary","Iceland","Ireland","Italy","Kosovo",
+          "Latvia", "Liechtenstein","Lithuania","Luxembourg","North Macedonia","Malta","Moldova","Monaco",
+          "Montenegro","Netherlands","Norway","Poland","Portugal","Romania","San Marino",
+          "Serbia","Slovakia","Slovenia","Spain","Sweden","Switzerland","Ukraine",
+          "United Kingdom","Vatican City"]
 
 dict_names = {}
 with open('c:\\data\\general\\countries_dict.txt',
@@ -18,6 +25,8 @@ js = json.loads(data)
 for k,v in js.items():
     for x in v:
         dict_names[x] = k
+
+europe = [dict_names[x] for x in europe]
 def clean_country_series(series):
     series = series.map(dict_names)
     return series
