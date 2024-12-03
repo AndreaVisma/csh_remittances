@@ -12,7 +12,9 @@ df = df_pop.merge(df_rem, on = ['country', 'year', 'quarter'], how = 'inner')
 
 #dependency_ratio
 df_age = pd.read_excel("c:\\data\\population\\austria\\age_nationality_hist_quarterly.xlsx")
-df = df.merge(df_age, on = ['country', 'year', 'quarter'], how = 'inner')
+df = df.merge(df_age, on = ['country', 'year', 'quarter'], how = 'left')
+for country in tqdm(df.country.unique()):
+    df.loc[df.country == country, 'dep_ratio'] = df.loc[df.country == country, 'dep_ratio'].interpolate()
 
 # dummy for neighbouring countries
 df["neighbour_dummy"] = np.where(df["country"].isin(austria_nighbours), 1, 0)
@@ -32,7 +34,12 @@ for year in tqdm(df_gdp.year.unique(),
                 df_gdp.loc[(df_gdp.year == year) & (df_gdp.quarter == quarter), 'gdp_per_capita'] -
                 df_gdp.loc[(df_gdp.year == year) & (df_gdp.quarter == quarter) & (df_gdp.country == 'Austria'), 'gdp_per_capita'].item())
 df = df.merge(df_gdp, on = ['country', 'year', 'quarter'], how = 'left')
-
+for country in tqdm(df.country.unique()):
+    df.loc[df.country == country, 'gdp_per_capita'] = (
+        df.loc[df.country == country, 'gdp_per_capita'].interpolate())
+    df.loc[df.country == country, 'delta_gdp'] = (
+        df.loc[df.country == country, 'delta_gdp'].interpolate())
+df.dropna(inplace = True)
 
 #natural disasters
 df_nd = pd.read_excel("C:\\Data\\natural_disasters\\emdat_country_type_quarterly.xlsx")
@@ -81,8 +88,9 @@ df.dropna(inplace =True)
 ##students
 df_stud = pd.read_excel("c:\\data\\population\\austria\\students_by_origin_clean.xlsx")
 df = df.merge(df_stud, on = ['country', 'year', 'quarter'], how = 'left')
+df = df[~((df.year == 2010) & (df.quarter == 2))]
 for country in tqdm(df.country.unique()):
-    df.loc[df.country == country, 'students'] = df.loc[df_rem.country == country, 'students'].ffill()
+    df.loc[df.country == country, 'students'] = df.loc[df.country == country, 'students'].interpolate()
 df['students'].fillna(0, inplace = True)
 df['pct_students'] = 100 * df['students'] / df['population']
 df['pct_students'] = df['pct_students'].clip(0,100)
@@ -91,7 +99,6 @@ df['pct_students'] = df['pct_students'].clip(0,100)
 df_cost = pd.read_excel("C:\\Data\\remittances\\remittances_cost_from_euro.xlsx")
 df_cost.rename(columns = {"destination_name" : "country", "period" : "year"}, inplace = True)
 df_cost = df_cost[['year', 'country', 'pct_cost']].groupby(['year', 'country']).mean().reset_index()
-df_cost.describe()
 
 df = df.merge(df_cost, on= ["country", "year"], how = "left")
 # give to all countries in a certain income group the same cost
