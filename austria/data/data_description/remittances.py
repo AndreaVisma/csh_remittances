@@ -38,35 +38,44 @@ df_rem_quarter['probability'] = df_rem_quarter['exp_population'] / df_rem_quarte
 df_year = df_rem_quarter.groupby(['country', 'year'])['remittances'].sum().reset_index()
 agg_df = df_year.groupby('country')['remittances'].sum().reset_index()
 
+##
+mean_df = df_year.groupby('country')['remittances'].mean().reset_index()
+above_50m = mean_df[mean_df.remittances > 50_000_000]
+
 # Mean and median
-mean_remit = agg_df['remittances'].mean()
-median_remit = agg_df['remittances'].median()
+mean_country_remit = mean_df['remittances'].mean()
+median_country_remit = mean_df['remittances'].median()
+mean_year_remit = df_year.groupby('year')['remittances'].sum().mean()
+median_year_remit = df_year.groupby('year')['remittances'].sum().median()
 
 # Skewness and kurtosis
-skewness = skew(agg_df['remittances'])
-kurt = kurtosis(agg_df['remittances'])
+skewness = skew(mean_df['remittances'])
+kurt = kurtosis(mean_df['remittances'])
 
-print(f"Mean Remittances: {mean_remit}")
-print(f"Median Remittances: {median_remit}")
+print(f"Mean _country Remittances: {mean_country_remit}")
+print(f"Median _country Remittances: {median_country_remit}")
 print(f"Skewness: {skewness}")
 print(f"Kurtosis: {kurt}")
 
-def gini_coefficient(x):
-    # Calculate Gini coefficient
-    x = x.values  # numpy array
-    x = x.flatten()  # Ensure it's 1D
-    if np.amin(x) < 0:
-        x -= np.amin(x)  # Shift values to be non-negative
-    x += 1e-12  # Add a small value to avoid division by zero
-    sorted_x = np.sort(x)
-    n = len(sorted_x)
-    cum_sum = np.cumsum(sorted_x)
-    gini = (cum_sum[0] + cum_sum[-1]) / (2.0 * cum_sum[-1]) - 1.0 / n
-    return gini
+print(f"Mean _year Remittances: {mean_year_remit}")
+print(f"Median _year Remittances: {median_year_remit}")
+
+def gini_func(series):
+    """Calculate the Gini coefficient of a numpy array."""
+    array = series.to_numpy()
+    array = array.flatten()
+    array = array + 0.0000001
+    array = np.sort(array)
+    index = np.arange(1,array.shape[0]+1)
+    n = array.shape[0]
+    return ((np.sum((2 * index - n  - 1) * array)) / (n * np.sum(array)))
 
 # Calculate Gini coefficient
-gini = gini_coefficient(agg_df['remittances'])
+gini = gini_func(df_year[df_year.year == 2020]['remittances'])
 print(f"Gini Coefficient: {gini}")
+
+
+
 
 sns.kdeplot(agg_df)
 plt.show(block = True)
@@ -135,7 +144,7 @@ plt.ylabel('Share of total remittances')
 plt.legend()
 plt.grid()
 ax.get_xaxis().set_ticks([])
-fig.savefig(outfolder + 'remittances_lorenz_curve.jpg', dpi=fig.dpi, bbox_inches = 'tight')
+fig.savefig(outfolder + 'remittances_lorenz_curve.pdf', dpi=fig.dpi, bbox_inches = 'tight')
 plt.show(block=True)
 
 
