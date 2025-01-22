@@ -118,7 +118,7 @@ for country in tqdm(yearly_data.country.unique()):
     df_res = pd.concat([df_res, country_df])
 df_res['population'] = df_res['population'].map(np.ceil).astype(int)
 
-df_res.to_csv("c:\\data\\my_datasets\\weekly_remittances_austria.csv")
+df_res.to_csv("c:\\data\\my_datasets\\weekly_remittances_austria.csv", index = False)
 
 def plot_remittances_country(country):
     # Plotting
