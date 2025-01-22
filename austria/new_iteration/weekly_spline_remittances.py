@@ -56,7 +56,7 @@ for year in tqdm(df_rem_year.year.unique()):
     df_rem_year.loc[df_rem_year.year == year, 'remittances'] = (df_rem_year.loc[df_rem_year.year == year, 'remittances']/
                                                                       inflation[inflation.year == year]['hcpi'].item())
 df_rem_year['exp_population'] = df_rem_year['remittances'] / (4 * 450)
-df_rem_year['probability'] = df_rem_year['exp_population'] / df_rem_quarter['population']
+df_rem_year['probability'] = df_rem_year['exp_population'] / df_rem_year['population']
 df_rem_year['probability'] = df_rem_year['probability'].clip(0,1)
 
 cols = ['date', 'country', 'population', 'remittances']
