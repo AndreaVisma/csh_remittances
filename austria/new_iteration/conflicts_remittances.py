@@ -12,7 +12,9 @@ df = pd.read_csv(file)
 df = df[["country", "date_start", "date_end", "best"]]
 df.rename(columns = {"best" : "deaths"}, inplace = True)
 df['date_start'] = pd.to_datetime(df['date_start'])
+df['start_week'] = df['date_start'] - df['date_start'].dt.weekday * np.timedelta64(1, 'D')
 df['date_end'] = pd.to_datetime(df['date_end'])
+df['end_week'] = df['date_end'] - df['date_end'].dt.weekday * np.timedelta64(1, 'D')
 df = df[df.date_start >= "01-2012"]
 df["country"] = df["country"].map(dict_names)
 df.isna().sum()
@@ -22,13 +24,13 @@ def spread_deaths(df):
     expanded_rows = []
     for _, row in tqdm(df.iterrows(), total=len(df)):
         # Generate weekly intervals between start and end dates
-        date_range = pd.date_range(start=row['date_start'], end=row['date_end'], freq='W')
+        date_range = pd.date_range(start=row['start_week'], end=row['end_week'], freq='W')
         num_weeks = len(date_range)
         if num_weeks == 0:
             # If the event lasts less than a week, assign it to the start date's week
             expanded_rows.append({
                 'country': row['country'],
-                'week_start': row['date_start'],
+                'start_week': row['start_week'],
                 'deaths': row['deaths']
             })
         else:
@@ -37,7 +39,7 @@ def spread_deaths(df):
             for week_start in date_range:
                 expanded_rows.append({
                     'country': row['country'],
-                    'week_start': week_start,
+                    'start_week': week_start,
                     'deaths': deaths_per_week
                 })
     return pd.DataFrame(expanded_rows)
@@ -46,7 +48,8 @@ def spread_deaths(df):
 expanded_df = spread_deaths(df)
 
 # Group by country and week, summing the deaths
-weekly_deaths = expanded_df.groupby(['country', 'week_start']).sum().reset_index()
+weekly_deaths = (expanded_df.groupby(['country', pd.Grouper(key='start_week', freq='W-MON')])['deaths']
+                 .sum().reset_index())
 
 def plot_country_conflict_history(country):
     df_country = weekly_deaths[weekly_deaths.country == country]
@@ -54,10 +57,10 @@ def plot_country_conflict_history(country):
 
     fig, ax = plt.subplots(2, 1, figsize=(12, 8), sharex=True)
 
-    ax[0].plot(df_country['week_start'], df_country['deaths'], color='blue', label='Deaths')
+    ax[0].plot(df_country['start_week'], df_country['deaths'], color='blue', label='Deaths')
     ax[0].set_title('Weekly Deaths')
     ax[0].grid()
-    ax[1].plot(df_country['week_start'], smoothed, color='orange', label='Smoothed Deaths')
+    ax[1].plot(df_country['start_week'], smoothed, color='orange', label='Smoothed Deaths')
     ax[1].set_title('Smoothed Weekly Deaths')
     ax[1].grid()
     fig.suptitle(f"Weekly deaths in conflict in {country}")

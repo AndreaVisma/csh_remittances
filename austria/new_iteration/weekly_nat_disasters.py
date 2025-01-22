@@ -15,6 +15,7 @@ import plotly.io as pio
 import plotly.express as px
 import os
 import json
+from scipy.signal import savgol_filter
 pio.renderers.default = 'browser'
 from utils import dict_names
 
@@ -76,7 +77,25 @@ def spread_disasters(df):
 expanded_df = spread_disasters(df_nd)
 
 # Group by country and week, summing the deaths
-weekly_disasters = expanded_df.groupby(['country', 'week_start']).sum().reset_index()
+weekly_disasters = (expanded_df.groupby(['country', pd.Grouper(key='week_start', freq='W-MON')])['total_affected']
+                 .sum().reset_index())
 weekly_disasters['country'] = weekly_disasters.country.map(dict_names)
+
+def plot_country_disaster_history(country):
+    df_country = weekly_disasters[weekly_disasters.country == country]
+    smoothed = savgol_filter(df_country['total_affected'], 19, 5)  # window size 13, polynomial order 5
+
+    fig, ax = plt.subplots(2, 1, figsize=(12, 8), sharex=True)
+
+    ax[0].plot(df_country['week_start'], df_country['total_affected'], color='blue', label='Disasters affected people')
+    ax[0].set_title('Weekly Affected by disaster')
+    ax[0].grid()
+    ax[1].plot(df_country['week_start'], smoothed, color='orange', label='Smoothed Disasters affected people')
+    ax[1].set_title('Smoothed Weekly Disasters')
+    ax[1].grid()
+    fig.suptitle(f"Weekly disasters in {country}")
+    plt.show(block=True)
+
+plot_country_disaster_history('Mexico')
 
 weekly_disasters.to_csv("C:\\Data\\my_datasets\\weekly_disasters.csv", index = False)
