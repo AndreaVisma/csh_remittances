@@ -26,18 +26,14 @@ emdat = emdat[(emdat["Start Year"] >= 2010) &
 emdat["Country"] = emdat["Country"].map(dict_names)
 
 #create a dataset with dummy variables
-df_nd = pd.pivot_table(data=emdat, columns =["Disaster Type"],
-                               index=["Country", "Start Year", "Start Month", "Start Day",
-                                      "End Year", "End Month", "End Day"], values="Total Affected",
-                           aggfunc="sum")
-df_nd.fillna(0, inplace = True)
-df_nd = df_nd.astype(int)
-df_nd["total affected"] = df_nd.sum(axis=1)
-df_nd.reset_index(inplace = True)
+df_nd = emdat[["Country", "Start Year", "Start Month", "Start Day","End Year", "End Month", "End Day",
+               "Total Affected", "Total Damage, Adjusted ('000 US$)", "Disaster Type"]].copy()
+df_nd = df_nd[~df_nd["Start Month"].isna()]
 
 #clean dates
 df_nd[['Start Year','Start Month', 'Start Day']] = (
     df_nd[['Start Year','Start Month', 'Start Day']].fillna(1).astype(int))
+df_nd.loc[df_nd["End Month"].isna(), "End Month"] = df_nd.loc[df_nd["End Month"].isna(), "Start Month"]
 df_nd[['End Year','End Month', 'End Day']] = (
     df_nd[['End Year','End Month', 'End Day']].fillna(1).astype(int))
 df_nd["start_date"] = pd.to_datetime(df_nd[['Start Year','Start Month', 'Start Day']].rename(columns=dict(zip(['Start Year','Start Month', 'Start Day'],
@@ -45,7 +41,10 @@ df_nd["start_date"] = pd.to_datetime(df_nd[['Start Year','Start Month', 'Start D
 df_nd["end_date"] = pd.to_datetime(df_nd[['End Year','End Month', 'End Day']].rename(columns=dict(zip(['End Year','End Month', 'End Day'],
                                                                                                               ['year', 'month', 'day']))))
 df_nd.drop(columns = ['End Year','End Month', 'End Day', 'Start Year','Start Month', 'Start Day'], inplace = True)
-df_nd.rename(columns = {'Country' : 'country', "total affected" : "total_affected"}, inplace = True)
+df_nd.rename(columns = {'Country' : 'country', "Total Affected" : "total_affected", "Total Damage, Adjusted ('000 US$)" : "total_damage"}, inplace = True)
+df_nd = df_nd[~df_nd.total_affected.isna()]
+df_nd["total_damage"] *= 1000
+df_nd["duration"] = (df_nd["end_date"] - df_nd["start_date"]).dt.days + 1
 
 df_nd.to_excel("C:\\Data\\natural_disasters\\disasters_start_end_dates.xlsx", index = False)
 
@@ -96,6 +95,6 @@ def plot_country_disaster_history(country):
     fig.suptitle(f"Weekly disasters in {country}")
     plt.show(block=True)
 
-plot_country_disaster_history('Mexico')
+plot_country_disaster_history('China')
 
 weekly_disasters.to_csv("C:\\Data\\my_datasets\\weekly_disasters.csv", index = False)
