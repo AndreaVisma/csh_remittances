@@ -137,4 +137,4 @@ def plot_remittances_country(country):
     plt.grid()
     plt.show(block = True)
 
-plot_remittances_country('Italy')
+plot_remittances_country('Mexico')

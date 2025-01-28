@@ -22,7 +22,7 @@ from utils import dict_names
 
 #read the EM-DAT data
 emdat = pd.read_excel("c:\\data\\natural_disasters\\emdat_2024_07_all.xlsx")
-emdat = emdat[(emdat["Start Year"] >= 2010) &
+emdat = emdat[(emdat["Start Year"] >= 2000) &
               (emdat["Disaster Group"] == "Natural")].copy()
 emdat["Country"] = emdat["Country"].map(dict_names)
 
