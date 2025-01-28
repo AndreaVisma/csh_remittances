@@ -158,5 +158,6 @@ plot_country_disaster_history('China')
 plot_country_disaster_history('Bangladesh')
 plot_country_disaster_history('Pakistan')
 plot_country_disaster_history(None)
+plot_country_disaster_history('Syria')
 
 weekly_disasters.to_csv("C:\\Data\\my_datasets\\weekly_disasters.csv", index = False)
