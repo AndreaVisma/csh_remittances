@@ -7,6 +7,7 @@ from utils import dict_names
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from scipy.interpolate import CubicSpline
+import seaborn as sns
 
 file = "C:\\Data\\remittances\\italy\\rimesse.xlsx"
 
@@ -66,5 +67,55 @@ plt.grid()
 plt.title("Total remittances flow from Italy")
 plt.ylabel("Million Euros")
 plt.ticklabel_format(axis='y', style='plain')
-fig.savefig("C:\\git-projects\\csh_remittances\\italy\\plots\\remittances\\total_monthly_flows.svg")
+fig.savefig("C:\\git-projects\\csh_remittances\\italy\\plots\\remittances\\flows\\total_monthly_flows.svg")
 plt.show(block = True)
+
+### plot biggest receivers
+def plot_biggest_receivers_years(years = [2005, 2024]):
+    miny, maxy = years[0], years[1]
+    df_group_country = df[(df.date >= str(miny)) & (df.date <= str(maxy + 1))][["country", "remittances"]].groupby("country").sum().reset_index()
+    df_group_country['pct'] = 100 * df_group_country["remittances"] / df_group_country["remittances"].sum()
+    df_group_country.loc[df_group_country.pct < 2, "country"] = "other"
+    df_group_country = df_group_country[["country", "remittances", "pct"]].groupby("country").sum().reset_index()
+    df_sorted = df_group_country.sort_values('remittances', ascending=False)
+
+    colors = sns.color_palette('pastel')
+    fig, ax = plt.subplots(figsize=(10, 7))
+    plt.pie(df_sorted['remittances'],
+            labels=df_sorted['country'],
+            autopct='%1.1f%%',
+            colors=colors)
+    plt.title(f'Top Countries by Remittances Received from Italy {miny}-{maxy}')
+    plt.axis('equal')  # Equal aspect ratio for a circular pie
+    plt.legend(loc='upper right', bbox_to_anchor=(1.3, 1))
+    plt.show(block = True)
+    fig.savefig(f"C:\\git-projects\\csh_remittances\\italy\\plots\\remittances\\share_senders\\biggest_senders_{miny}-{maxy}.svg")
+
+years_couples = [[2005, 2024], [2005, 2010], [2010, 2017], [2017, 2024]]
+for couple in tqdm(years_couples):
+    plot_biggest_receivers_years(years = couple)
+
+### plot country-specific flows
+def plot_country_monthly_flows(country):
+    df_country = df[df.country == country]
+    df_country_q = df_q[df_q.country == country].copy()
+    df_country_q["remittances"] = df_country_q["remittances"] / 3
+
+    fig, ax = plt.subplots(figsize=(12, 8))
+    plt.plot(df_country["date"], df_country["remittances"])
+    plt.scatter(df_country_q["date"], df_country_q["remittances"], color='red')
+    plt.grid()
+    plt.title(f"Remittances flow from Italy to {country}")
+    plt.ylabel("Euros")
+    # plt.ticklabel_format(axis='y', style='plain')
+    fig.savefig(f"C:\\git-projects\\csh_remittances\\italy\\plots\\remittances\\flows\\total_monthly_flows_{country}.svg")
+    plt.show(block=True)
+
+plot_country_monthly_flows('Mexico')
+plot_country_monthly_flows('Syria')
+plot_country_monthly_flows('Morocco')
+plot_country_monthly_flows('Germany')
+plot_country_monthly_flows('China')
+plot_country_monthly_flows('Bangladesh')
+plot_country_monthly_flows('Pakistan')
+plot_country_monthly_flows('Mexico')
