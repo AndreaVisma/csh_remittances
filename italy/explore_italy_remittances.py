@@ -71,6 +71,7 @@ df_res_month["remittances"] /= 3
 
 #plot total monthly outflow
 df = pd.concat([df_month, df_res_month])
+df.to_csv("C:\\Data\\remittances\\italy\\monthly_splined_remittances.csv", index = False)
 df_group = df[["date", "remittances"]].groupby('date').sum().reset_index()
 df_group["remittances"] /= 1_000_000
 df_group_q = df_q[["date", "remittances"]].groupby('date').sum().reset_index()
