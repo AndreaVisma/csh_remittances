@@ -7,7 +7,7 @@ pio.renderers.default = 'browser'
 
 df_rem = pd.read_csv('c:\\data\\remittances\\italy\\monthly_splined_remittances.csv')
 df_rem["date"] = pd.to_datetime(df_rem["date"])
-df_nat = pd.read_csv("C:\\Data\\my_datasets\\weekly_disasters.csv")
+df_nat = pd.read_csv("C:\\Data\\my_datasets\\weekly_remittances\\weekly_disasters.csv")
 df_nat["week_start"] = pd.to_datetime(df_nat["week_start"])
 df_nat["year"] = df_nat.week_start.dt.year
 
@@ -115,7 +115,7 @@ for country in df_disaster['country'].unique():
             method='update',
             args=[
                 {"visible": visible},
-                {"title": f"Remittances & Disasters: {country}"}
+                {"title": f"Remittances from Italy & Disasters: {country}"}
             ]
         )
     )
@@ -135,7 +135,7 @@ fig.update_layout(
         "y": 1.15
     }],
     barmode='stack',  # Critical for stacking disaster bars
-    title="Remittances vs. Disasters (Stacked by Type)",
+    title="Remittances from Italy vs. Disasters (Stacked by Type)",
     yaxis_title="Remittances (EUR)",
     yaxis2_title="Percentage of population affected (%)",
     hovermode="x unified",
