@@ -11,6 +11,16 @@ import seaborn as sns
 
 file = "C:\\Data\\remittances\\italy\\rimesse.xlsx"
 
+## inflation correction
+inflation = pd.read_excel("C:\\Data\\economic\\annual_inflation_clean.xlsx").query("Country == 'Italy' & year >= 2005")
+inflation.loc[len(inflation)] = ["Italy", 2024, 1.1]
+inflation.rename(columns = {'hcpi' : 'rate'}, inplace = True)
+inflation['hcpi'] = 100
+for year in tqdm(inflation.year.unique()[1:]):
+    inflation.loc[inflation.year == year, 'hcpi'] = (inflation.loc[inflation.year == year - 1, 'hcpi'].item() *
+                                                     (1 + inflation.loc[inflation.year == year, 'rate'].item() / 100))
+inflation['hcpi'] = inflation['hcpi'] / 100
+
 ## monthly 2005-2015
 
 df_month = pd.read_excel(file, sheet_name="mensili_2005_2015", parse_dates=["data"])
@@ -20,6 +30,9 @@ df_month.dropna(inplace = True)
 df_month["remittances"] = df_month["importo (milioni di euro)"] * 1_000_000
 df_month.rename(columns = {"data" : "date"}, inplace = True)
 df_month = df_month[["date", "country", "remittances"]].copy()
+for year in tqdm(df_month.date.dt.year.unique()):
+    df_month.loc[df_month.date.dt.year == year, 'remittances'] = (df_month.loc[df_month.date.dt.year == year, 'remittances']/
+                                                                      inflation[inflation.year == year]['hcpi'].item())
 
 ## quarterly 2016-2024
 df_q = pd.read_excel(file, sheet_name="trimestrali_paese").iloc[1:]
@@ -29,6 +42,9 @@ df_q["country"] = df_q["country"].map(dict_names)
 df_q.dropna(inplace = True)
 df_q["remittances"] = df_q["importo (milioni di euro)"] * 1_000_000
 df_q = df_q[["date", "country", "remittances"]].copy()
+for year in tqdm(df_q.date.dt.year.unique()):
+    df_q.loc[df_q.date.dt.year == year, 'remittances'] = (df_q.loc[df_q.date.dt.year == year, 'remittances']/
+                                                                      inflation[inflation.year == year]['hcpi'].item())
 
 #monthly spline
 start_date, end_date = df_q['date'].min(), df_q['date'].max()
@@ -96,26 +112,26 @@ for couple in tqdm(years_couples):
     plot_biggest_receivers_years(years = couple)
 
 ### plot country-specific flows
-def plot_country_monthly_flows(country):
+def plot_country_monthly_flows(country, show = True):
     df_country = df[df.country == country]
     df_country_q = df_q[df_q.country == country].copy()
     df_country_q["remittances"] = df_country_q["remittances"] / 3
 
     fig, ax = plt.subplots(figsize=(12, 8))
-    plt.plot(df_country["date"], df_country["remittances"])
-    plt.scatter(df_country_q["date"], df_country_q["remittances"], color='red')
+    ax.plot(df_country["date"], df_country["remittances"])
+    ax.scatter(df_country_q["date"], df_country_q["remittances"], color='red')
     plt.grid()
     plt.title(f"Remittances flow from Italy to {country}")
     plt.ylabel("Euros")
     # plt.ticklabel_format(axis='y', style='plain')
     fig.savefig(f"C:\\git-projects\\csh_remittances\\italy\\plots\\remittances\\flows\\total_monthly_flows_{country}.svg")
-    plt.show(block=True)
+    if show:
+        plt.show(block=True)
 
-plot_country_monthly_flows('Mexico')
-plot_country_monthly_flows('Syria')
-plot_country_monthly_flows('Morocco')
-plot_country_monthly_flows('Germany')
+for country in tqdm(df.country.unique()):
+    plot_country_monthly_flows(country, show = False)
+
+plot_country_monthly_flows('Mexico', show = True)
 plot_country_monthly_flows('China')
 plot_country_monthly_flows('Bangladesh')
 plot_country_monthly_flows('Pakistan')
-plot_country_monthly_flows('Mexico')
