@@ -97,4 +97,4 @@ plot_country_conflict_history('Israel')
 plot_country_conflict_history('Libya')
 plot_country_conflict_history('Bosnia')
 
-weekly_deaths.to_csv("C:\\Data\\my_datasets\\weekly_conflicts.csv", index = False)
+weekly_deaths.to_csv("C:\\Data\\my_datasets\\weekly_remittances\\weekly_conflicts.csv", index = False)
