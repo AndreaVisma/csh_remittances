@@ -14,6 +14,7 @@ from plotly.subplots import make_subplots
 import re
 import seaborn as sns
 import time
+from italy.simulation.func import goodness_of_fit
 sns.set_style('whitegrid')
 
 #remittances and disasters
@@ -77,7 +78,7 @@ disaster_boost_1 = 0.5
 disaster_boost_2 = 0.4
 disaster_boost_3 = 0.25
 disaster_boost_4 = 0.1
-fixed_rem_amount = 150
+fixed_rem_amount = 200
 def probability_single_country(country, plot = True):
     df_ = df[(df.country == country)].copy()
 
@@ -117,6 +118,7 @@ def probability_all_countries(df):
         'simulated_senders': 'sum', 'remittances': 'mean', 'population': 'sum'
     }).reset_index()
     df_plot['sim_remittances'] = df_plot.simulated_senders * fixed_rem_amount
+    df_plot['error'] = np.abs(df_plot['remittances'] - df_plot['sim_remittances'])
 
     return df_plot
 
@@ -125,67 +127,9 @@ df_results = probability_all_countries(df)
 end = time.time()
 print(f"Second elapsed: {np.round(end - start,2)}")
 
-def plot_all_results_log(df):
-    fig = px.scatter(df, x = 'remittances', y = 'sim_remittances',
-                     color = 'country', log_x=True, log_y=True)
-    fig.add_scatter(x=np.linspace(0, df.remittances.max(), 100),
-                    y=np.linspace(0, df.remittances.max(), 100))
-    fig.show()
-
 plot_all_results_log(df_results)
-def plot_lines(df):
-    fig = go.Figure()
+goodness_of_fit(df_results)
 
-    # Trace for simulated_senders (using the left y-axis)
-    fig.add_trace(go.Scatter(
-        x=df['date'],
-        y=df['simulated_senders'],
-        name='Simulated Senders',
-        mode='lines',
-        marker=dict(color='blue')
-    ))
-
-    # Trace for population (using the left y-axis)
-    fig.add_trace(go.Scatter(
-        x=df['date'],
-        y=df['population'],
-        name='Population',
-        mode='lines+markers',
-        marker=dict(color='green')
-    ))
-
-    # Trace for remittances (using the right y-axis)
-    fig.add_trace(go.Scatter(
-        x=df['date'],
-        y=df['remittances'],
-        name='Remittances',
-        mode='lines+markers',
-        marker=dict(color='red'),
-        yaxis='y2'
-    ))
-
-    # Update the layout to add a second y-axis
-    fig.update_layout(
-        title='Simulated Senders & Population vs Remittances Over Time',
-        xaxis=dict(title='Date'),
-        yaxis=dict(
-            title='Simulated Senders & Population',
-            titlefont=dict(color='black'),
-            tickfont=dict(color='black')
-        ),
-        yaxis2=dict(
-            title='Remittances',
-            titlefont=dict(color='red'),
-            tickfont=dict(color='red'),
-            overlaying='y',
-            side='right'
-        ),
-        legend=dict(x=0.01, y=0.99),
-        template='plotly_white'
-    )
-
-    # Show the plot
-    fig.show()
 
 
 
