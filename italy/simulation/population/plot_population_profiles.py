@@ -4,7 +4,9 @@ import seaborn as sns
 import re
 
 df = pd.read_csv('c:\\data\\migration\\italy\\estimated_stocks.csv')
-df['age'] = df.age_group.astype(str).apply(lambda x: int(re.findall(r'\d+', x)[0]))
+df['age'] = df.age_group.astype(str).apply(lambda x: np.mean(list(map(int, re.findall(r'\d+', x)))))
+df.loc[df.age == 5, 'age'] = 2.5
+df['age'] = df.age.astype(int)
 df.sort_values(['citizenship', 'year', 'age'], inplace = True)
 sns.set(style="whitegrid")
 
@@ -45,7 +47,7 @@ def plot_time_series(df, citizenship='Afghanistan', age_group='From 10 to 14 yea
     plt.tight_layout()
     plt.show(block = True)
 
-plot_bar_for_year(df, citizenship='Germany', year=2020)
+plot_bar_for_year(df, citizenship='Philippines', year=2020)
 
 # Visualize a time series for a specific group
 plot_time_series(df, citizenship='Afghanistan', age_group='From 10 to 14 years', sex='female')
@@ -132,6 +134,6 @@ citizenship2 = 'Philippines'
 year = 2015
 
 # Display the comparison plot.
-compare_population_pyramids(df, 'Philippines', 'Bangladesh', 2010)
+compare_population_pyramids(df, 'Syria', 'Bangladesh', 2010)
 
 
