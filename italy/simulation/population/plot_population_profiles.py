@@ -134,6 +134,6 @@ citizenship2 = 'Philippines'
 year = 2015
 
 # Display the comparison plot.
-compare_population_pyramids(df, 'Syria', 'Bangladesh', 2010)
+compare_population_pyramids(df, 'Syria', 'Philippines', 2020)
 
 
