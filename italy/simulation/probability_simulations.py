@@ -14,7 +14,7 @@ from plotly.subplots import make_subplots
 import re
 import seaborn as sns
 import time
-from italy.simulation.func import goodness_of_fit
+from italy.simulation.func.goodness_of_fit import goodness_of_fit_results, plot_all_results_log, plot_lines
 sns.set_style('whitegrid')
 
 #remittances and disasters
@@ -73,12 +73,12 @@ for shift in tqdm([1, 2, 3, 4]):
 # individual probability process
 ##############
 male_boost = 0.05 #(5%)
-disaster_boost_0 = 0.25
-disaster_boost_1 = 0.5
-disaster_boost_2 = 0.4
-disaster_boost_3 = 0.25
-disaster_boost_4 = 0.1
-fixed_rem_amount = 200
+d_boost_0 = 1
+d_boost_1 = 2
+d_boost_2 = 3
+d_boost_3 = 2.5
+d_boost_4 = 1.5
+fixed_rem_amount = 250
 def probability_single_country(country, plot = True):
     df_ = df[(df.country == country)].copy()
 
@@ -86,31 +86,41 @@ def probability_single_country(country, plot = True):
     df_.loc[(df_.sex == 'male') & (df_.nta > 0), 'prob'] += male_boost
 
     ## disasters effect
-    df_.loc[df_['prob'] > 0, 'prob'] += df_['total_affected'] * disaster_boost_0
-    df_.loc[df_['prob'] > 0, 'prob'] += df_['ta_1'] * disaster_boost_1
-    df_.loc[df_['prob'] > 0, 'prob'] += df_['ta_2'] * disaster_boost_2
-    df_.loc[df_['prob'] > 0, 'prob'] += df_['ta_3'] * disaster_boost_3
-    df_.loc[df_['prob'] > 0, 'prob'] += df_['ta_4'] * disaster_boost_4
+    df_.loc[df_['prob'] > 0, 'prob'] += df_['total_affected'] * d_boost_0
+    df_.loc[df_['prob'] > 0, 'prob'] += df_['ta_1'] * d_boost_1
+    df_.loc[df_['prob'] > 0, 'prob'] += df_['ta_2'] * d_boost_2
+    df_.loc[df_['prob'] > 0, 'prob'] += df_['ta_3'] * d_boost_3
+    df_.loc[df_['prob'] > 0, 'prob'] += df_['ta_4'] * d_boost_4
+
+    df_.loc[df_['prob'] < 0, 'prob'] = 0
+    df_.loc[df_['prob'] > 1, 'prob'] = 1
 
     df_['simulated_senders'] = df_.apply(lambda row: np.random.binomial(row['population'], min(row['prob'], 1)), axis=1)
 
     df_plot = df_[['date', 'simulated_senders', 'remittances', 'population']].groupby('date').agg({
         'simulated_senders' : 'sum', 'remittances': 'mean', 'population': 'sum'
     }).reset_index()
+    df_plot['sim_remittances'] = df_plot.simulated_senders * fixed_rem_amount
+    df_plot['error'] = np.abs(df_plot['remittances'] - df_plot['sim_remittances'])
     if plot:
         plot_lines(df_plot)
     return df_plot
+
+probability_single_country('Nepal')
 
 def probability_all_countries(df):
     df['prob'] = df.nta
     df.loc[(df.sex == 'male') & (df.nta > 0), 'prob'] += male_boost
 
     ## disasters effect
-    df.loc[df['prob'] > 0, 'prob'] += df['total_affected'] * disaster_boost_0
-    df.loc[df['prob'] > 0, 'prob'] += df['ta_1'] * disaster_boost_1
-    df.loc[df['prob'] > 0, 'prob'] += df['ta_2'] * disaster_boost_2
-    df.loc[df['prob'] > 0, 'prob'] += df['ta_3'] * disaster_boost_3
-    df.loc[df['prob'] > 0, 'prob'] += df['ta_4'] * disaster_boost_4
+    df.loc[df['prob'] > 0, 'prob'] += df['total_affected'] * d_boost_0
+    df.loc[df['prob'] > 0, 'prob'] += df['ta_1'] * d_boost_1
+    df.loc[df['prob'] > 0, 'prob'] += df['ta_2'] * d_boost_2
+    df.loc[df['prob'] > 0, 'prob'] += df['ta_3'] * d_boost_3
+    df.loc[df['prob'] > 0, 'prob'] += df['ta_4'] * d_boost_4
+
+    df.loc[df['prob'] < 0, 'prob'] = 0
+    df.loc[df['prob'] > 1, 'prob'] = 1
 
     df['simulated_senders'] = df.apply(lambda row: np.random.binomial(row['population'], min(row['prob'], 1)), axis=1)
 
@@ -123,12 +133,12 @@ def probability_all_countries(df):
     return df_plot
 
 start = time.time()
-df_results = probability_all_countries(df)
+df_results = probability_all_countries(df[df.country.isin(df.country.unique().tolist())].copy())
 end = time.time()
 print(f"Second elapsed: {np.round(end - start,2)}")
 
 plot_all_results_log(df_results)
-goodness_of_fit(df_results)
+goodness_of_fit_results(df_results)
 
 
 
