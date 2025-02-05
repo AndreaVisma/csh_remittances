@@ -71,23 +71,31 @@ def plot_lines(df):
     ))
 
     # Trace for population (using the left y-axis)
-    fig.add_trace(go.Scatter(
-        x=df['date'],
-        y=df['population'],
-        name='Population',
-        mode='lines+markers',
-        marker=dict(color='green')
-    ))
+    # fig.add_trace(go.Scatter(
+    #     x=df['date'],
+    #     y=df['population'],
+    #     name='Population',
+    #     mode='lines+markers',
+    #     marker=dict(color='green')
+    # ))
 
     # Trace for remittances (using the right y-axis)
     fig.add_trace(go.Scatter(
         x=df['date'],
         y=df['remittances'],
         name='Remittances',
-        mode='lines+markers',
+        mode='lines',
         marker=dict(color='red'),
         yaxis='y2'
     ))
+    # fig.add_trace(go.Scatter(
+    #     x=df['date'],
+    #     y=df['sim_remittances'],
+    #     name='Remittances simulated',
+    #     mode='lines+markers',
+    #     marker=dict(color='orange'),
+    #     yaxis='y2'
+    # ))
 
     # Update the layout to add a second y-axis
     fig.update_layout(

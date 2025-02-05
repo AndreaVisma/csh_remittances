@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import plotly.graph_objects as go
 
 outfolder = ".\\austria\\plots\\plots_for_paper\\model_results\\"
 
@@ -8,19 +9,18 @@ def goodness_of_fit_results(df, pred = False):
 
     df['error'] = df['obs_remittances'] - df['sim_remittances']
     df['absolute_error'] = np.abs(df['error'])
-    df['percentage_error'] = (df['error'] / df['obs_remittances']) * 100
 
     #  MAE
     MAE = df['absolute_error'].mean()
-    print(f"MAE: {round(MAE, 3)}")
+    print(f"Mean absolute error: {round(MAE, 3)}")
 
     # MSE
     MSE = np.mean(np.square(df['error']))
-    print(f"MSE: {round(MSE, 3)}")
+    print(f"Mean squared error: {round(MSE, 3)}")
 
     # RMSE
     RMSE = np.sqrt(MSE)
-    print(f"RMSE: {round(RMSE, 3)}")
+    print(f"Root mean squared error: {round(RMSE, 3)}")
 
     # R-squared
     SS_res = np.sum(np.square(df['error']))
@@ -30,11 +30,8 @@ def goodness_of_fit_results(df, pred = False):
 
     # Calculate MAPE
     # Ensure no division by zero
-    if not df['obs_remittances'].eq(0).any():
-        MAPE = df['percentage_error'].mean()
-        print(f"MAPE: {round(MAPE, 3)}%")
-    else:
-        print("MAPE cannot be calculated due to zero values in observed remittances.")
+    MAPE = (np.abs(df['error']).sum() / df['obs_remittances'].sum()) * 100
+    print(f"Mean absolute percentage error: {round(MAPE, 3)}%")
 
     # Scatter Plot
     if pred:
