@@ -103,9 +103,31 @@ for flow in tqdm(['immigration', 'emigration']):
      df['count'] = df['count'].replace(':', 0).astype(int)
      return df
 
+ # def update_stock(previous_stock, immigration, emigration):
+ #     """
+ #     Update the migrant stock using flows.
+ #
+ #     Parameters:
+ #       previous_stock (pd.DataFrame): Stock in the previous year (indexed by age_group, sex, citizenship).
+ #       immigration (pd.DataFrame): Immigration flows for the current year.
+ #       emigration (pd.DataFrame): Emigration flows for the current year.
+ #
+ #     Returns:
+ #       pd.DataFrame: The updated stock.
+ #
+ #     Note: This function assumes that the indices in the dataframes line up.
+ #     """
+ #     new_stock = previous_stock.add(immigration, fill_value=0) \
+ #         .subtract(emigration, fill_value=0)
+ #
+ #     # Ensure counts are not negative (optional, depending on your data)
+ #     new_stock['count'] = new_stock['count'].clip(lower=0)
+ #
+ #     return new_stock
+
  def update_stock(previous_stock, immigration, emigration):
      """
-     Update the migrant stock using flows.
+     Update the migrant stock using flows, mortality, and natality.
 
      Parameters:
        previous_stock (pd.DataFrame): Stock in the previous year (indexed by age_group, sex, citizenship).
@@ -114,14 +136,52 @@ for flow in tqdm(['immigration', 'emigration']):
 
      Returns:
        pd.DataFrame: The updated stock.
-
-     Note: This function assumes that the indices in the dataframes line up.
      """
-     new_stock = previous_stock.add(immigration, fill_value=0) \
-         .subtract(emigration, fill_value=0)
+     # Apply mortality (10 per 1000)
+     survivors = previous_stock.copy()
+     deaths = (survivors['count'] * 0.01).round().astype(int)
+     survivors['count'] = (survivors['count'] - deaths).clip(lower=0)
 
-     # Ensure counts are not negative (optional, depending on your data)
-     new_stock['count'] = new_stock['count'].clip(lower=0)
+     # Calculate births (7 per 1000 of survivors)
+     total_survivors = survivors['count'].sum()
+     births_total = int(round(total_survivors * 0.007))  # 7 per 1000
+
+     if total_survivors > 0 and births_total > 0:
+         # Distribute births by citizenship
+         all_citizenships = survivors.index.get_level_values('citizenship').unique()
+         citizenship_totals = survivors.groupby('citizenship')['count'].sum().reindex(all_citizenships, fill_value=0)
+         birth_shares = citizenship_totals / total_survivors
+         births_per_citizenship = (birth_shares * births_total).round().astype(int)
+
+         # Adjust for rounding discrepancies
+         total_assigned = births_per_citizenship.sum()
+         if total_assigned != births_total:
+             diff = births_total - total_assigned
+             max_citizenship = citizenship_totals.idxmax()
+             births_per_citizenship[max_citizenship] += diff
+
+         # Create births entries
+         births_data = []
+         for citizenship in births_per_citizenship.index:
+             total_births = births_per_citizenship[citizenship]
+             if total_births <= 0:
+                 continue
+             male_births = total_births // 2
+             female_births = total_births - male_births
+             births_data.append(('Less than 5 years', 'male', citizenship, male_births))
+             births_data.append(('Less than 5 years', 'female', citizenship, female_births))
+
+         # Add births to survivors
+         if births_data:
+             births_df = pd.DataFrame(
+                 births_data,
+                 columns=['age_group', 'sex', 'citizenship', 'count']
+             ).set_index(['age_group', 'sex', 'citizenship'])
+             survivors = survivors.add(births_df, fill_value=0)
+
+     # Apply immigration and emigration
+     new_stock = survivors.add(immigration, fill_value=0).subtract(emigration, fill_value=0)
+     new_stock['count'] = new_stock['count'].clip(lower=0).astype(int)
 
      return new_stock
 
@@ -184,23 +244,22 @@ for flow in tqdm(['immigration', 'emigration']):
 
      return stocks
 
- if __name__ == '__main__':
-     # Adjust these parameters as needed
-     baseline_year = 2010
-     start_year = 2008
-     end_year = 2022
-     data_path = 'c:\\data\\migration\\italy\\'  # your data directory
 
-     stocks_by_year = compute_stocks(baseline_year=baseline_year, start_year=start_year, end_year=end_year,
-                                     data_path=data_path)
+ # Adjust these parameters as needed
+ baseline_year = 2010
+ start_year = 2008
+ end_year = 2022
+ data_path = 'c:\\data\\migration\\italy\\'  # your data directory
 
-     # For example, to display the migrant stock for 2020:
-     print("Migrant stock in 2020:")
-     print(stocks_by_year[2020].sort_index())
+ stocks_by_year = compute_stocks(baseline_year=baseline_year, start_year=start_year, end_year=end_year,
+                                 data_path=data_path)
 
-     # Optionally, you could write each year's stock to a CSV:
-     df_all = pd.DataFrame([])
-     for year, df in tqdm(stocks_by_year.items(), total = len(stocks_by_year.keys())):
-         df['year'] = year
-         df_all = pd.concat([df_all, df])
-     df_all.to_csv('c:\\data\\migration\\italy\\estimated_stocks.csv')
+ # For example, to display the migrant stock for 2020:
+ print("Migrant stock in 2020:")
+ print(stocks_by_year[2020].sort_index())
+
+ df_all = pd.DataFrame([])
+ for year, df in tqdm(stocks_by_year.items(), total = len(stocks_by_year.keys())):
+     df['year'] = year
+     df_all = pd.concat([df_all, df])
+ df_all.to_csv('c:\\data\\migration\\italy\\estimated_stocks_new.csv')

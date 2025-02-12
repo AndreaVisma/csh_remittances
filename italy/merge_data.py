@@ -71,6 +71,7 @@ df.dropna(inplace = True)
 df.loc[df.population < 0, 'population'] = 0
 df.drop(columns = 'remittances', inplace = True)
 
+df['tot'] = df['fl'] + df['eq'] + df['st'] + df['dr']
+for shift in tqdm([int(x) for x in np.linspace(1, 12, 12)]):
+    df[f'tot_{shift}'] = df[f'fl_{shift}'] + df[f'eq_{shift}'] + df[f'st_{shift}'] + df[f'dr_{shift}']
 df.to_parquet("C:\\Data\\my_datasets\\italy\\simulation_data.parquet")
-
-fd = pd.read_parquet("C:\\Data\\my_datasets\\italy\\simulation_data.parquet")
