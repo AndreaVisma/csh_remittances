@@ -148,6 +148,41 @@ def simulate_populations(df_dem):
     return agents_df
 
 agents_df = simulate_populations(df_dem)
-agents_df.set_index(['agent_id', 'country', 'sex'], inplace = True)
-agents_df = agents_df.astype('Int64')
+
+### add family probability
+for year in tqdm(years):
+    for country in df_dem.country.unique():
+        young_count = len(agents_df[(agents_df.country == country) & (agents_df[f"{year}_age"] < 25)])
+        parenting_count = len(agents_df[(agents_df.country == country) & (25 < agents_df[f"{year}_age"]) & (agents_df[f"{year}_age"] < 45)])
+        male_count = len(agents_df[(agents_df.country == country) & (agents_df["sex"] == 'male')])
+        female_count = len(agents_df[(agents_df.country == country) & (agents_df["sex"] == 'female')])
+        age_factor = max(0.1, 1 - abs(1 - (young_count / parenting_count)))
+        sex_factor = min(male_count, female_count) / max(male_count, female_count)
+        combined_factor = age_factor * sex_factor
+
+        agents_df.loc[(agents_df["country"] == country), f"{year}_fam_prob"] = combined_factor
+
+# ## trial
+# countries = []
+# age_factors = []
+# sex_factors = []
+# factors = []
+# for country in tqdm(df_dem.country.unique()):
+#     young_count = len(agents_df[(agents_df.country == country) & (agents_df[f"{year}_age"] < 25)])
+#     parenting_count = len(agents_df[(agents_df.country == country) & (25 < agents_df[f"{year}_age"]) & (agents_df[f"{year}_age"] < 50)])
+#     male_count = len(agents_df[(agents_df.country == country) & (agents_df["sex"] == 'male')])
+#     female_count = len(agents_df[(agents_df.country == country) & (agents_df["sex"] == 'female')])
+#     age_factor = max(0.1, 1 - abs(1 - (young_count / parenting_count)))
+#     sex_factor = min(male_count, female_count) / max(male_count, female_count)
+#     combined_factor = age_factor * sex_factor
+#
+#     countries.append(country)
+#     factors.append(combined_factor)
+#     age_factors.append(age_factor)
+#     sex_factors.append(sex_factor)
+#
+# df_factors = pd.DataFrame({'country' : countries, 'comb_f' : factors, 'age_f' : age_factors, 'sex_f' : sex_factors})
+# df_factors.sort_values('comb_f', inplace = True)
+
+
 agents_df.to_pickle("c:\\data\\population\\italy\\simulated_migrants_populations_2008_2022.pkl")
