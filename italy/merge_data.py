@@ -37,17 +37,23 @@ df_nat_monthly.rename(columns = disaster_names, inplace=True)
 
 # shift disasters
 df_nat_monthly['date'] = pd.to_datetime(df_nat_monthly['date'])
-# Create shifted columns using proper datetime handling
-for col in disasters_short:
-    for shift in tqdm([int(x) for x in np.linspace(1, 12, 12)]):
-        g = df_nat_monthly.groupby('country', group_keys=False)
-        g =  g.apply(lambda x: x.set_index('date')[col]
-                     .shift(shift).reset_index(drop=True)).fillna(0)
-        df_nat_monthly[f'{col}_{shift}'] = g.tolist()
 
 ### remittances
 df_rem = df_rem.merge(df_nat_monthly, on = ["country", "date"], how = 'left')
 df_rem.fillna(0, inplace = True)
+df_rem.sort_values(['country', 'date'], inplace=True)
+# Create shifted columns using proper datetime handling
+for col in disasters_short:
+    for shift in tqdm([int(x) for x in np.linspace(1, 12, 12)]):
+        g = df_rem.groupby('country', group_keys=False)
+        g =  g.apply(lambda x: x.set_index('date')[col]
+                     .shift(shift).reset_index(drop=True)).fillna(0)
+        df_rem[f'{col}_{shift}'] = g.tolist()
+df_rem['tot'] = df_rem['fl'] + df_rem['eq'] + df_rem['st'] + df_rem['dr']
+for shift in tqdm([int(x) for x in np.linspace(1, 12, 12)]):
+    df_rem[f'tot_{shift}'] = df_rem[f'fl_{shift}'] + df_rem[f'eq_{shift}'] + df_rem[f'st_{shift}'] + df_rem[f'dr_{shift}']
+
+df_rem.to_parquet("C:\\Data\\my_datasets\\italy\\remittances_disasters_data.parquet")
 
 # population and national transfers account
 df = pd.read_csv('c:\\data\\migration\\italy\\estimated_stocks_new.csv')
@@ -69,9 +75,6 @@ df.rename(columns = {'citizenship' : 'country', 'count' : 'population'}, inplace
 df = df.merge(df_rem, on = ['country', 'year'], how = 'left')
 df.dropna(inplace = True)
 df.loc[df.population < 0, 'population'] = 0
-df.drop(columns = 'remittances', inplace = True)
+# df.drop(columns = 'remittances', inplace = True)
 
-df['tot'] = df['fl'] + df['eq'] + df['st'] + df['dr']
-for shift in tqdm([int(x) for x in np.linspace(1, 12, 12)]):
-    df[f'tot_{shift}'] = df[f'fl_{shift}'] + df[f'eq_{shift}'] + df[f'st_{shift}'] + df[f'dr_{shift}']
 df.to_parquet("C:\\Data\\my_datasets\\italy\\simulation_data.parquet")

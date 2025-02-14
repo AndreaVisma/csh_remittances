@@ -8,7 +8,7 @@ import plotly.graph_objects as go
 import plotly.express as px
 import plotly.io as pio
 pio.renderers.default = 'browser'
-from italy.simulation.func.goodness_of_fit import plot_remittances_senders, plot_all_results_log, goodness_of_fit_results
+from italy.simulation.func.goodness_of_fit import plot_remittances_senders, plot_all_results_log, goodness_of_fit_results, plot_all_results_lin
 
 outfolder = "C:\\git-projects\\csh_remittances\\italy\\plots\\plots_for_paper\\model_results\\"
 fixed_vars = ['agent_id', 'country', 'sex']
@@ -19,7 +19,7 @@ nta.columns = nta.iloc[0]
 nta = nta.iloc[1:]
 nta.reset_index(names='age', inplace = True)
 nta = nta[['age', 'Support Ratio']].rename(columns = {'Support Ratio' : 'nta'})
-nta.nta=nta.nta * 0.7
+nta.nta=nta.nta
 
 ## agents
 df_ag = pd.read_pickle("c:\\data\\population\\italy\\simulated_migrants_populations_2008_2022.pkl")
@@ -40,10 +40,16 @@ df_ag_long = df_ag_long.merge(nta, on = 'age', how = 'left')
 
 ###
 #parameters
-param_nta = 36
-param_stay = -2
-param_fam = -9
+param_nta = 20
+param_stay = -0.5
+param_fam = -2
 rem_amount = 1500
+eq_par = [0.1, 0.25, 0.5, 0.4, 0.25, 0.15, 0.1, 0, -0.1, -0.25, -0.2, -0.15, -0.1]
+dr_par = [0.1, 0.25, 0.5, 0.4, 0.25, 0.15, 0.1, 0, -0.1, -0.25, -0.2, -0.15, -0.1]
+fl_par = [0.1, 0.25, 0.5, 0.4, 0.25, 0.15, 0.1, 0, -0.1, -0.25, -0.2, -0.15, -0.1]
+st_par = [0.1, 0.25, 0.5, 0.4, 0.25, 0.15, 0.1, 0, -0.1, -0.25, -0.2, -0.15, -0.1]
+tot_par = [0.1, 0.25, 0.5, 0.4, 0.25, 0.15, 0.1, 0, -0.1, -0.25, -0.2, -0.15, -0.1]
+dict_dis_par = dict(zip(['eq', 'dr', 'fl', 'st', 'tot'], [eq_par, dr_par, fl_par, st_par, tot_par]))
 
 df_ag_long['theta'] =  param_nta * df_ag_long['nta'] + param_stay * df_ag_long['yrs_stay'] + param_fam * df_ag_long['fam_prob']
 df_ag_long['theta'] = pd.to_numeric(df_ag_long['theta'], errors='coerce')
@@ -97,6 +103,7 @@ for param_nta in tqdm(nta_space):
 ## remittances
 df = pd.read_parquet("C:\\Data\\my_datasets\\italy\\simulation_data.parquet")
 df['date'] = pd.to_datetime(df.date)
+df.sort_values(['country', 'date'], inplace = True)
 df_rem_group = df[~df[["date", "country"]].duplicated()][["date", "country", "remittances"]]
 df_pop_group = df[["date", "country", "population"]].groupby(["date", "country"]).sum().reset_index()
 df_rem_group = df_rem_group.merge(df_pop_group, on = ["date", "country"], how = 'left')
@@ -137,33 +144,29 @@ nep_res = simulate_one_country_no_disasters("Romania", True)
 nep_res['sim_remittances'] = nep_res.simulated_senders * rem_amount
 goodness_of_fit_results(nep_res)
 
-def pct_senders_country(country):
-    nep_res = simulate_one_country_no_disasters(country, plot = False)
-    nep_res = nep_res.merge(df_rem_group[df_rem_group.country == country][['date', 'population', 'exp_pop', 'pct_sending']], on = 'date')
-    nep_res['simulated_pct_senders'] = nep_res['simulated_senders'] / nep_res['population']
+def compute_disasters_theta():
+    df_dis = df[~df[["date", "country"]].duplicated()][["date", "country"] + [x for x in df.columns[9:]]]
+    df_dis.rename(columns = {'eq' : 'eq_0', 'st' : 'st_0', 'fl' : 'fl_0', 'dr' : 'dr_0', 'tot' : 'tot_0'}, inplace = True)
+    for disaster in ['eq', 'dr', 'fl', 'st', 'tot']:
+        params = dict_dis_par[disaster]
+        impact =  sum([4 * params[int(x)] * df_dis[f"{disaster}_{int(x)}"] for x in np.linspace(0, 12, 13)])
+        df_dis[f"{disaster}_score"] = impact
+    return df_dis
+df_dis = compute_disasters_theta()
 
-    plt.plot(nep_res['simulated_pct_senders'], label = 'simulated senders pct')
-    plt.plot(nep_res['pct_sending'], label='real senders pct')
-    plt.legend()
-    plt.show(block = True)
-
-pct_senders_country("Romania")
-
-
-df_sample = df_ag_long.sample(round(len(df_ag_long) / 100))
-def simulate_one_country_no_disasters_from_sample(country, plot, disable_progress = False):
+def simulate_one_country_with_disasters(country, plot, disable_progress = False):
     rem_country = df[(df.country == country) & (df.age_group == 'Less than 5 years') & (df.sex == 'male')].copy()
 
-    df_country = df_sample[df_sample.country == country].copy()
+    df_country = df_ag_long[df_ag_long.country == country].copy()
     df_country['theta'] = param_nta * df_country['nta'] + param_stay * df_country['yrs_stay'] + param_fam * df_country['fam_prob']
     df_country['theta'] = pd.to_numeric(df_country['theta'], errors='coerce')
-    df_country['prob'] = 1 / (1 + np.exp(-df_country['theta']))
 
     # plot_prob(df_country)
 
     senders = []
     for date in tqdm(rem_country.date, disable=disable_progress):
-        probs = df_country[(df_country.year == date.year) & (~df_country.prob.isna())]['prob'].tolist()
+        thetas = df_country[(df_country.year == date.year) & (~df_country.theta.isna())]['theta'] + df_dis[(df_dis.country == country) & (df_dis.date == date)]['tot_score'].item()
+        probs = 1 / (1 + np.exp(-thetas.dropna()))
         senders.append(np.random.binomial(1, probs).sum())
     res = rem_country[['date', 'remittances']].copy()
     res['simulated_senders'] = senders
@@ -172,20 +175,60 @@ def simulate_one_country_no_disasters_from_sample(country, plot, disable_progres
         plot_remittances_senders(res)
     return res
 
+nep_res = simulate_one_country_with_disasters("Pakistan", True)
+nep_res['sim_remittances'] = nep_res.simulated_senders * rem_amount
+goodness_of_fit_results(nep_res)
+
+def pct_senders_country(country):
+    nep_res = simulate_one_country_with_disasters(country, plot = False)
+    nep_res = nep_res.merge(df_rem_group[df_rem_group.country == country][['date', 'population', 'exp_pop', 'pct_sending']], on = 'date')
+    nep_res['simulated_pct_senders'] = nep_res['simulated_senders'] / nep_res['population']
+
+    plt.plot(nep_res['simulated_pct_senders'], label = 'simulated senders pct')
+    plt.plot(nep_res['pct_sending'], label='real senders pct')
+    plt.legend()
+    plt.show(block = True)
+
+pct_senders_country("Philippines")
+
+# df_sample = df_ag_long.sample(round(len(df_ag_long) / 100))
+# def simulate_one_country_no_disasters_from_sample(country, plot, disable_progress = False):
+#     rem_country = df[(df.country == country) & (df.age_group == 'Less than 5 years') & (df.sex == 'male')].copy()
+#
+#     df_country = df_sample[df_sample.country == country].copy()
+#     df_country['theta'] = param_nta * df_country['nta'] + param_stay * df_country['yrs_stay'] + param_fam * df_country['fam_prob']
+#     df_country['theta'] = pd.to_numeric(df_country['theta'], errors='coerce')
+#     df_country['prob'] = 1 / (1 + np.exp(-df_country['theta']))
+#
+#     # plot_prob(df_country)
+#
+#     senders = []
+#     for date in tqdm(rem_country.date, disable=disable_progress):
+#         probs = df_country[(df_country.year == date.year) & (~df_country.prob.isna())]['prob'].tolist()
+#         senders.append(np.random.binomial(1, probs).sum())
+#     res = rem_country[['date', 'remittances']].copy()
+#     res['simulated_senders'] = senders
+#
+#     if plot:
+#         plot_remittances_senders(res)
+#     return res
+
 def simulate_all_countries():
     res = pd.DataFrame([])
     for country in tqdm(df_ag_long.country.unique()):
-        country_res = simulate_one_country_no_disasters(country, plot = False , disable_progress = True)
+        country_res = simulate_one_country_with_disasters(country, plot = False , disable_progress = True)
         country_res['country'] = country
         res = pd.concat([res, country_res])
     return res
 
 df_res = simulate_all_countries()
-df_res['sim_remittances'] = df_res.simulated_senders * rem_amount
+df_res['sim_remittances'] = df_res.simulated_senders * rem_amount * 0.6
 df_res_small = df_res[df_res['remittances'] > 10_000]
 df_res_small = df_res_small[df_res_small['country'] != 'China']
 
-plot_all_results_lin(df_res_small)
+plot_all_results_log(df_res_small)
 goodness_of_fit_results(df_res_small)
 
+plot_correlation_senders_remittances(df_res_small)
+plot_correlation_remittances(df_res_small)
 

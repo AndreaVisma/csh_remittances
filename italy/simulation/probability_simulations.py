@@ -40,7 +40,7 @@ df_rem = df_rem.merge(df_nat_monthly[['country','date', 'total_affected', 'total
 df_rem.fillna(0, inplace = True)
 
 # population and national transfers account
-df = pd.read_csv('c:\\data\\migration\\italy\\estimated_stocks.csv')
+df = pd.read_csv('c:\\data\\migration\\italy\\estimated_stocks_new.csv')
 df['age'] = df.age_group.astype(str).apply(lambda x: np.mean(list(map(int, re.findall(r'\d+', x)))))
 df.loc[df.age == 5, 'age'] = 2.5
 df['age'] = df.age.astype(int)
@@ -106,7 +106,7 @@ def probability_single_country(country, plot = True):
         plot_lines(df_plot)
     return df_plot
 
-probability_single_country('Nepal')
+probability_single_country('Bangladesh')
 
 def probability_all_countries(df):
     df['prob'] = df.nta

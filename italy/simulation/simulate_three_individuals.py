@@ -109,7 +109,7 @@ plt.plot(test)
 plt.show(block = True)
 
 p_fam = -0.3
-test = [p_fam * x for x in np.linspace(0, 1, 100)]
+test = [p_fam * x for x in np.linspace(0, 1, 10)]
 plt.plot(test)
 plt.show(block = True)
 
@@ -144,10 +144,8 @@ dict_persons = dict(zip(df.country.unique().tolist(),
 df['Person'] = df.country.map(dict_persons)
 
 fig, ax = plt.subplots(figsize = (10, 7))
-sns.lineplot(df, x = 'date', y = 'prob', hue = 'Person', ax = ax)
-# plt.legend().remove()
-plt.xlabel('Date')
-plt.ylabel('Probability of sending remittances')
-plt.grid()
+sns.lineplot(df, x = 'date', y = 'prob', hue = 'Person', ax = ax, linewidth = 3)
+ax.legend().remove()
+plt.grid(True)
 fig.savefig("C:\\git-projects\\csh_remittances\\italy\\plots\\plots_for_paper\\simulation\\three_individuals_sim.svg", bbox_inches = 'tight')
 plt.show(block = True)

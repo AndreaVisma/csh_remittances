@@ -71,13 +71,13 @@ def plot_lines(df):
     ))
 
     # Trace for population (using the left y-axis)
-    # fig.add_trace(go.Scatter(
-    #     x=df['date'],
-    #     y=df['population'],
-    #     name='Population',
-    #     mode='lines+markers',
-    #     marker=dict(color='green')
-    # ))
+    fig.add_trace(go.Scatter(
+        x=df['date'],
+        y=df['population'],
+        name='Population',
+        mode='lines+markers',
+        marker=dict(color='green')
+    ))
 
     # Trace for remittances (using the right y-axis)
     fig.add_trace(go.Scatter(
@@ -120,9 +120,78 @@ def plot_lines(df):
     # Show the plot
     fig.show()
 
+def plot_remittances_senders(df):
+    fig = go.Figure()
+
+    # Trace for simulated_senders (using the left y-axis)
+    fig.add_trace(go.Scatter(
+        x=df['date'],
+        y=df['simulated_senders'],
+        name='Simulated Senders',
+        mode='lines',
+        marker=dict(color='blue')
+    ))
+
+    # Trace for remittances (using the right y-axis)
+    fig.add_trace(go.Scatter(
+        x=df['date'],
+        y=df['remittances'],
+        name='Remittances',
+        mode='lines',
+        marker=dict(color='red'),
+        yaxis='y2'
+    ))
+
+
+    # Update the layout to add a second y-axis
+    fig.update_layout(
+        title='Simulated Senders & Population vs Remittances Over Time',
+        xaxis=dict(title='Date'),
+        yaxis=dict(
+            title='Simulated Senders & Population',
+            titlefont=dict(color='black'),
+            tickfont=dict(color='black')
+        ),
+        yaxis2=dict(
+            title='Remittances',
+            titlefont=dict(color='red'),
+            tickfont=dict(color='red'),
+            overlaying='y',
+            side='right'
+        ),
+        legend=dict(x=0.01, y=0.99),
+        template='plotly_white'
+    )
+
+    # Show the plot
+    fig.show()
+
 def plot_all_results_log(df):
     fig = px.scatter(df, x = 'remittances', y = 'sim_remittances',
                      color = 'country', log_x=True, log_y=True)
     fig.add_scatter(x=np.linspace(0, df.remittances.max(), 100),
                     y=np.linspace(0, df.remittances.max(), 100))
+    fig.show()
+
+def plot_all_results_lin(df):
+    fig = px.scatter(df, x = 'remittances', y = 'sim_remittances',
+                     color = 'country')
+    fig.add_scatter(x=np.linspace(0, df.remittances.max(), 100),
+                    y=np.linspace(0, df.remittances.max(), 100))
+    fig.show()
+
+def plot_correlation_senders_remittances(df):
+    fig = px.scatter(df, x = 'remittances', y = 'simulated_senders', trendline="ols")
+    fig.add_scatter(x=np.linspace(0, df.remittances.max(), 100),
+                    y=np.linspace(0, df.simulated_senders.max(), 100))
+    results = px.get_trendline_results(fig).px_fit_results.iloc[0].summary()
+    print(results)
+    fig.show()
+
+def plot_correlation_remittances(df):
+    fig = px.scatter(df, x = 'remittances', y = 'sim_remittances', trendline="ols",log_x=True, log_y=True)
+    fig.add_scatter(x=np.linspace(0, df.remittances.max(), 100),
+                    y=np.linspace(0, df.remittances.max(), 100))
+    results = px.get_trendline_results(fig).px_fit_results.iloc[0].summary()
+    print(results)
     fig.show()
