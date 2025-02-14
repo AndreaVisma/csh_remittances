@@ -24,6 +24,7 @@ inflation['hcpi'] = inflation['hcpi'] / 100
 ## monthly 2005-2015
 
 df_month = pd.read_excel(file, sheet_name="mensili_2005_2015", parse_dates=["data"])
+df_month.loc[df_month.codice_paese.isna(), 'codice_paese'] = 'NA'
 df_month['country'] = cc.convert(df_month["codice_paese"], to='names', not_found=np.nan)
 df_month["country"] = df_month["country"].map(dict_names)
 df_month.dropna(inplace = True)
@@ -36,6 +37,7 @@ for year in tqdm(df_month.date.dt.year.unique()):
 
 ## quarterly 2016-2024
 df_q = pd.read_excel(file, sheet_name="trimestrali_paese").iloc[1:]
+df_q.loc[df_q.codice_paese.isna(), 'codice_paese'] = 'NA'
 df_q["date"] = pd.to_datetime(df_q['anno'].astype(str)+'Q'+df_q['trimestre'].astype(str)) + pd.tseries.offsets.QuarterEnd()
 df_q['country'] = cc.convert(df_q["codice_paese"], to='names', not_found=np.nan)
 df_q["country"] = df_q["country"].map(dict_names)
@@ -135,4 +137,4 @@ for country in tqdm(df.country.unique()):
 plot_country_monthly_flows('Mexico', show = True)
 plot_country_monthly_flows('China')
 plot_country_monthly_flows('Bangladesh')
-plot_country_monthly_flows('Pakistan')
+plot_country_monthly_flows('Namibia')

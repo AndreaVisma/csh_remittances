@@ -1,9 +1,11 @@
+
 import pandas as pd
 import matplotlib.pyplot as plt
+import numpy as np
 import seaborn as sns
 import re
 
-df = pd.read_csv('c:\\data\\migration\\italy\\estimated_stocks.csv')
+df = pd.read_csv('c:\\data\\migration\\italy\\estimated_stocks_new.csv')
 df['age'] = df.age_group.astype(str).apply(lambda x: np.mean(list(map(int, re.findall(r'\d+', x)))))
 df.loc[df.age == 5, 'age'] = 2.5
 df['age'] = df.age.astype(int)
@@ -134,6 +136,6 @@ citizenship2 = 'Philippines'
 year = 2015
 
 # Display the comparison plot.
-compare_population_pyramids(df, 'Syria', 'Philippines', 2020)
+compare_population_pyramids(df, 'Ecuador', 'Bosnia', 2015)
 
 
