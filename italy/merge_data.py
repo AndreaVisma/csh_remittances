@@ -77,4 +77,17 @@ df.dropna(inplace = True)
 df.loc[df.population < 0, 'population'] = 0
 # df.drop(columns = 'remittances', inplace = True)
 
+##add gdp
+df_gdp = pd.read_excel("c:\\data\\economic\\gdp\\quarterly_gdp_clean.xlsx")
+for year in tqdm(df_gdp.year.unique(),
+                          total = len(df_gdp.year.unique())):
+    df_year = df_gdp[df_gdp.year == year]
+    for quarter in df_year.quarter.unique():
+        df_gdp.loc[(df_gdp.year == year) & (df_gdp.quarter == quarter), 'delta_gdp'] = (
+                df_gdp.loc[(df_gdp.year == year) & (df_gdp.quarter == quarter), 'gdp_per_capita'] -
+                df_gdp.loc[(df_gdp.year == year) & (df_gdp.quarter == quarter) & (df_gdp.country == 'Austria'), 'gdp_per_capita'].item())
+df_gdp = df_gdp[['country', 'year', 'gdp_per_capita', 'delta_gdp']].groupby(['country', 'year']).mean().reset_index()
+df = df.merge(df_gdp, on = ['country', 'year'], how = 'left')
+df.dropna(inplace = True)
+
 df.to_parquet("C:\\Data\\my_datasets\\italy\\simulation_data.parquet")
