@@ -85,7 +85,7 @@ for year in tqdm(df_gdp.year.unique(),
     for quarter in df_year.quarter.unique():
         df_gdp.loc[(df_gdp.year == year) & (df_gdp.quarter == quarter), 'delta_gdp'] = (
                 df_gdp.loc[(df_gdp.year == year) & (df_gdp.quarter == quarter), 'gdp_per_capita'] -
-                df_gdp.loc[(df_gdp.year == year) & (df_gdp.quarter == quarter) & (df_gdp.country == 'Austria'), 'gdp_per_capita'].item())
+                df_gdp.loc[(df_gdp.year == year) & (df_gdp.quarter == quarter) & (df_gdp.country == 'Italy'), 'gdp_per_capita'].item())
 df_gdp = df_gdp[['country', 'year', 'gdp_per_capita', 'delta_gdp']].groupby(['country', 'year']).mean().reset_index()
 df = df.merge(df_gdp, on = ['country', 'year'], how = 'left')
 df.dropna(inplace = True)
