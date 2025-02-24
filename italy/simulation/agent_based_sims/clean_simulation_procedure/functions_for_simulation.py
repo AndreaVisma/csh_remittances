@@ -35,7 +35,7 @@ def plot_prob(df):
     plt.show(block=True)
 
 def simulate_one_country_no_disasters(country, dem_params, df_rem_group, df_ag_long, plot, disable_progress = False):
-    param_nta, param_stay, param_fam, param_gdp = dem_params
+    param_nta, param_stay, param_fam, param_gdp, param_close, param_albania = dem_params
     rem_country = df_rem_group[(df_rem_group.country == country)].copy()
 
     df_country = df_ag_long[df_ag_long.country == country].copy()
@@ -86,23 +86,23 @@ def simulate_one_country_with_disasters(df_dis, country, plot, reprocess_dis = F
         plot_remittances_senders(res)
     return res
 
-def simulate_all_countries(dem_params, df_rem_group, df_ag_long, disasters = False):
-    res = pd.DataFrame([])
-    if disasters:
-        for country in tqdm(df_ag_long.country.unique()):
-            country_res = simulate_one_country_with_disasters(df_dis, country, plot = False , disable_progress = True)
-            country_res['country'] = country
-            res = pd.concat([res, country_res])
-    else:
-        for country in tqdm(df_ag_long.country.unique()):
-            country_res = simulate_one_country_no_disasters(country, dem_params = dem_params, df_rem_group = df_rem_group,
-                                                            df_ag_long = df_ag_long, plot=False, disable_progress=True)
-            country_res['country'] = country
-            res = pd.concat([res, country_res])
-    return res
+# def simulate_all_countries(dem_params, df_rem_group, df_ag_long, disasters = False):
+#     res = pd.DataFrame([])
+#     if disasters:
+#         for country in tqdm(df_ag_long.country.unique()):
+#             country_res = simulate_one_country_with_disasters(df_dis, country, plot = False , disable_progress = True)
+#             country_res['country'] = country
+#             res = pd.concat([res, country_res])
+#     else:
+#         for country in tqdm(df_ag_long.country.unique()):
+#             country_res = simulate_one_country_no_disasters(country, dem_params = dem_params, df_rem_group = df_rem_group,
+#                                                             df_ag_long = df_ag_long, plot=False, disable_progress=True)
+#             country_res['country'] = country
+#             res = pd.concat([res, country_res])
+#     return res
 
 def simulate_all_countries_deterministic_no_dis(dem_params, df_rem_group, df_ag_long):
-    param_nta, param_stay, param_fam, param_gdp = dem_params
+    param_nta, param_stay, param_fam, param_gdp, param_close, param_albania = dem_params
 
     df_ag_long['theta'] = (
                 param_nta * df_ag_long['nta'] + param_stay * df_ag_long['yrs_stay'] + param_fam * df_ag_long['fam_prob']
@@ -119,10 +119,43 @@ def simulate_all_countries_deterministic_no_dis(dem_params, df_rem_group, df_ag_
 
     return res
 
-def plot_everything_about_results(df):
+
+def simulate_all_countries_deterministic_with_dis(dem_params, df_rem_group, df_ag_long, disaster_vector):
+    param_nta, param_stay, param_fam, param_gdp, param_close, param_albania = dem_params
+    dict_dis_par = {
+        group: disaster_vector[i * 13: (i + 1) * 13]
+        for i, group in enumerate(['eq', 'dr', 'fl', 'st', 'tot'])
+    }
+    df_dis = compute_disasters_theta(df, dict_dis_par)
+    df_dis['year'] = pd.to_datetime(df_dis.date).dt.year
+
+    df_ag_long['theta'] = (
+                param_nta * df_ag_long['nta'] + param_stay * df_ag_long['yrs_stay'] + param_fam * df_ag_long['fam_prob']
+                + param_gdp * df_ag_long["delta_gdp_norm"] + param_close * df_ag_long["close_country"] + param_albania *
+                df_ag_long["albania"])
+    df_ag_long['theta'] = pd.to_numeric(df_ag_long['theta'], errors='coerce')
+    # df_ag_group = df_ag_long[['country', 'year', 'theta']].groupby(['country', 'year']).mean().reset_index()
+
+    dis = df_dis[['country', 'year', 'eq_score', 'dr_score', 'fl_score', 'st_score', 'tot_score']]
+    dis = dis.merge(df_ag_long[['country', 'year', 'theta']], on=['country', 'year'])
+    dis['theta'] = (dis['theta'] + dis['tot_score'] * 0.3) #* 0.3 + dis['eq_score'] * 0.3 + dis['dr_score'] * 0.3 +
+        #dis['fl_score'] * 0.3 + dis['st_score'] * 0.3)
+
+    dis['theta'] = pd.to_numeric(dis['theta'], errors='coerce')
+    dis['prob'] = 1 / (1 + np.exp(-dis['theta']))
+    # dis.loc[df_ag_long.nta == 0, 'prob'] = 0
+    df_ag_group = dis[['country', 'year', 'prob']].groupby(['country', 'year']).sum().reset_index()
+    df_ag_group.rename(columns={'prob': 'simulated_senders'}, inplace=True)
+
+    res = df_rem_group[['date', 'year', 'country', 'remittances']].copy()
+    res = res.merge(df_ag_group, on=['country', 'year'])
+
+    return res
+
+def plot_everything_about_results(df, pred = False):
     plot_all_results_log(df)
     plot_all_results_lin(df)
-    goodness_of_fit_results(df)
+    goodness_of_fit_results(df, pred = pred)
 
     plot_correlation_senders_remittances(df)
     plot_correlation_remittances(df)
@@ -135,3 +168,19 @@ def plot_country_mean(df):
                     y=np.linspace(0, df_mean.remittances.max(), 100))
     fig.show()
     goodness_of_fit_results(df_mean)
+
+def pct_senders_country(country, disasters = True, plot = False, disable_progress = False):
+    if disasters:
+        nep_res = simulate_one_country_with_disasters(df_dis, country, plot = False, disable_progress = disable_progress)
+    else:
+        nep_res = simulate_one_country_no_disasters(country, plot=False, disable_progress = disable_progress)
+    nep_res = nep_res.merge(df_rem_group[df_rem_group.country == country][['date', 'population', 'exp_pop', 'pct_sending']], on = 'date')
+    nep_res['simulated_pct_senders'] = nep_res['simulated_senders'] / nep_res['population']
+    nep_res['country'] = country
+
+    if plot:
+        plt.plot(nep_res['simulated_pct_senders'], label = 'simulated senders pct')
+        plt.plot(nep_res['pct_sending'], label='real senders pct')
+        plt.legend()
+        plt.show(block = True)
+    return nep_res[['date', 'country', 'simulated_pct_senders', 'pct_sending']]
