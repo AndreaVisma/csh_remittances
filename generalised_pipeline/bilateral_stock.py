@@ -29,7 +29,7 @@ def plot_share_emigrants_by_destination(country_emigration, year):
     df_country.sort_values('pct', ascending=False, inplace = True)
     df_country = df_country.iloc[:10]
 
-    print(df_country[['destination', 'pct']].head())
+    print(df_country.head())
 
     # Define source and target indices
     source = [0] * len(df_country)  # Assume all migrants come from "Origin" (index 0)
@@ -61,4 +61,8 @@ def plot_share_emigrants_by_destination(country_emigration, year):
     fig.show()
 
 
-plot_share_emigrants_by_destination("Mexico", 2015)
+plot_share_emigrants_by_destination("Mexico", 2010)
+
+plot_share_emigrants_by_destination("India", 2015)
+plot_share_emigrants_by_destination("Philippines", 2015)
+plot_share_emigrants_by_destination("China", 2015)
