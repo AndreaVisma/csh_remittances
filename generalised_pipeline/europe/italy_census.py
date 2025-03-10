@@ -18,14 +18,6 @@ df['destination'] = "Italy"
 df['date'] = pd.to_datetime(df['year'], format = "%Y")
 df.sort_values('date', inplace = True)
 
-################ fix zimbabwe
-# countries_to_fix = ["Zimbabwe", "United Kingdom"]
-# for country in tqdm(countries_to_fix):
-#     zimb = df[(df.origin == country)].sort_values("n_people", ascending = False)
-#     ind_to_drop = zimb[zimb[["origin", "year", "sex", "age_group"]].duplicated()].index
-#     df = df.drop(ind_to_drop, axis=0)
-################
-
 start_date, end_date = df['date'].min(), df['date'].max()
 monthly_dates = pd.date_range(start=start_date, end=end_date, freq='M')
 monthly_times = (monthly_dates - start_date).days
