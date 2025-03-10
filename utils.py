@@ -185,7 +185,7 @@ def get_last_day_of_the_quarter(p_date: date_class):
     quarter = get_quarter(p_date)
     return datetime(p_date.year + 3 * quarter // 12, 3 * quarter % 12 + 1, 1) + timedelta(days=-1)
 
-italy_close_countries = ['Albania', 'Austria', 'Belgium',
+italy_close_countries = ['Albania', 'Austria', 'Belgium', 'Egypt',
        'Croatia', 'Czechia', 'France', 'Germany', 'Greece', 'Hungary',
        'Libya', 'Luxembourg','Malta', 'Monaco', 'Montenegro',
        'Morocco', 'Netherlands', 'North Macedonia', 'Norway','Poland',

@@ -17,6 +17,10 @@ df_all = pd.DataFrame([])
 for year in tqdm(years):
     df_year = pd.read_excel(us_folder + f"us_{year}.xlsx", sheet_name="Data", skiprows=1)
     df_year = df_year[[x for x in df_year.columns if "Unnamed" not in x]].iloc[1:]
+    # cols_to_keep = ['sex', 'age_group']
+    # other_cols = [x for x in df_year.columns if "any" in x]
+    # cols_to_keep = cols_to_keep + other_cols
+    # df_year = df_year[cols_to_keep]
     df_year = df_year.melt(id_vars=["sex", "age_group"], value_name='n_people', var_name='denomination')
 
     df_year['demonym'] = df_year['denomination'].apply(lambda x: x.split(" ")[0])
@@ -43,11 +47,15 @@ df_all = df_all[df_all.age_group != 'total']
 df_all['age_group'] = df_all.age_group.str.replace('and ove', '100')
 df_all['mean_age'] = df_all['age_group'].apply(lambda x: np.mean([int(y) for y in re.findall(r'\d+', x)]))
 
+df_all.rename(columns = {"country" : "origin"}, inplace = True)
+df_all['destination'] = "USA"
+df_all = df_all[["origin", "destination", "sex", "age_group", "n_people", "mean_age", "year"]]
+
 df_all.to_excel("C:\\Data\\migration\\bilateral_stocks\\us\\processed_asia_latam.xlsx", index = False)
 
 def plot_pyramid_country_year(country, year):
 
-    df_ = df_all[(df_all.country == country) & (df_all.year == year)]
+    df_ = df_all[(df_all.origin == country) & (df_all.year == year)]
     df_ = df_[['sex', 'mean_age', 'n_people']].pivot_table(index='mean_age', columns='sex', values='n_people').reset_index()
 
     # Create the figure and axis
@@ -70,5 +78,4 @@ def plot_pyramid_country_year(country, year):
     plt.grid()
     plt.show(block = True)
 
-
-plot_pyramid_country_year("China", 2010)
+plot_pyramid_country_year("Japan", 2010)
