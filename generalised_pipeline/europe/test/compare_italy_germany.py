@@ -23,22 +23,24 @@ print(set(df_ger.origin) - set(df_ita.origin))
 
 #########
 for country in tqdm(countries):
-    for year in df_ita.date.dt.year.unique():
-        df_ger.loc[(df_ger.origin == country) & (df_ger.date.dt.year == year), "n_people"] = (100 *
-            df_ger.loc[(df_ger.origin == country) & (df_ger.date.dt.year == year), "n_people"] /
-            df_ger.loc[(df_ger.origin == country) & (df_ger.date.dt.year == year), "n_people"].sum())
-        df_ita.loc[(df_ita.origin == country) & (df_ita.date.dt.year == year), "n_people"] = (100 *
-            df_ita.loc[(df_ita.origin == country) & (df_ita.date.dt.year == year), "n_people"] /
-            df_ita.loc[(df_ita.origin == country) & (df_ita.date.dt.year == year), "n_people"].sum())
+    for date in df_ita.date.unique():
+        for sex in ["male", "female"]:
+            df_ger.loc[(df_ger.origin == country) & (df_ger.date == date) & (df_ger.sex == sex), "pct"] = (
+                df_ger.loc[(df_ger.origin == country) & (df_ger.date == date) & (df_ger.sex == sex), "n_people"] /
+                df_ger.loc[(df_ger.origin == country) & (df_ger.date == date) & (df_ger.sex == sex), "n_people"].sum())
+            df_ita.loc[(df_ita.origin == country) & (df_ita.date == date) & (df_ita.sex == sex), "pct"] = (
+                df_ita.loc[(df_ita.origin == country) & (df_ita.date == date)& (df_ita.sex == sex), "n_people"] /
+                df_ita.loc[(df_ita.origin == country) & (df_ita.date == date)& (df_ita.sex == sex), "n_people"].sum())
 
-df_ger = df_ger[df_ger.date.dt.year <= year]
+df_ger = df_ger[df_ger.date.dt.year <= 2021]
 
-df_mer = (df_ita[['date', 'origin', 'age_group', 'sex', 'n_people']].
-          merge(df_ger[['date', 'origin', 'age_group', 'sex', 'n_people']],
+df_mer = (df_ita[['date', 'origin', 'age_group', 'sex', 'n_people', 'pct']].
+          merge(df_ger[['date', 'origin', 'age_group', 'sex', 'n_people', 'pct']],
                 on = ['date', 'origin', 'age_group', 'sex'], how = 'inner',
                 suffixes = ('_ita', '_ger')))
-df_mer['diff'] = np.abs(df_mer['n_people_ita'] - df_mer["n_people_ger"])
+df_mer['diff'] = np.abs(df_mer['pct_ita'] - df_mer["pct_ger"])
 df_mer.sort_values('diff', ascending = False, inplace = True)
+df_mer.to_pickle("C:\\Data\\migration\\bilateral_stocks\\germany\\germany_italy_ratios.pkl")
 
 fig, ax = plt.subplots()
 plt.scatter(x = df_mer['n_people_ita'], y = df_mer["n_people_ger"])

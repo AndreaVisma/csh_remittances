@@ -55,7 +55,7 @@ df_month['n_people'] = df_month['n_people'].astype(int)
 df_month['mean_age'] = df_month['age_group'].apply(lambda x: np.mean([int(y) for y in re.findall(r'\d+', x)]))
 df_month['destination'] = "Germany"
 
-df.to_pickle("C:\\Data\\migration\\bilateral_stocks\\germany\\processed_germany.pkl")
+df_month.to_pickle("C:\\Data\\migration\\bilateral_stocks\\germany\\processed_germany.pkl")
 
 df_ = pd.read_pickle("C:\\Data\\migration\\bilateral_stocks\\germany\\processed_germany.pkl")
 
