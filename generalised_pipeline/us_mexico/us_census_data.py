@@ -51,7 +51,7 @@ df_all.rename(columns = {"country" : "origin"}, inplace = True)
 df_all['destination'] = "USA"
 df_all = df_all[["origin", "destination", "sex", "age_group", "n_people", "mean_age", "year"]]
 
-df_all.to_excel("C:\\Data\\migration\\bilateral_stocks\\us\\processed_asia_latam.xlsx", index = False)
+df_all.to_excel("C:\\Data\\migration\\bilateral_stocks\\us\\processed_us_from_asia_latam.xlsx", index = False)
 
 def plot_pyramid_country_year(country, year):
 

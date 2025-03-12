@@ -68,7 +68,9 @@ df_eur = df_eur.merge(df_us[['date', 'origin', 'age_group', 'sex', 'pct_us']], o
 ### estimate world stocks
 groups, n_people_ita, n_people_ger, n_people_us, sexes, origins, destinations, dates = [], [], [], [], [], [], [], []
 
-for dest in tqdm(wrld_countries, desc="Processing ..."):
+pbar = tqdm(wrld_countries)
+for dest in pbar:
+    pbar.set_description(f"Processing {dest}")
     df_un_dest = df_un[df_un.destination == dest]
     for origin in df_un_dest['origin'].unique():
         for year in [2010, 2015, 2020]:
@@ -117,8 +119,12 @@ df_all['date'] = pd.to_datetime(df_all['date'], format = "%Y") + MonthEnd(0)
 df_all['n_people'] = 0.333 * df_all['n_people_ita'] + 0.333 * df_all['n_people_ger'] + 0.333 * df_all["n_people_us"]
 print(df_all.n_people.isna().sum())
 
-## where us value is missing, do average of the other two
+## where one value is missing, do average of the other two
 df_all.loc[df_all.n_people_us.isna(), 'n_people'] = 0.5 * (df_all.loc[df_all.n_people_us.isna(), 'n_people_ita'] + df_all.loc[df_all.n_people_us.isna(), 'n_people_ger'])
+print(df_all.n_people.isna().sum())
+df_all.loc[df_all.n_people_ita.isna(), 'n_people'] = 0.5 * (df_all.loc[df_all.n_people_ita.isna(), 'n_people_us'] + df_all.loc[df_all.n_people_ita.isna(), 'n_people_ger'])
+print(df_all.n_people.isna().sum())
+df_all.loc[df_all.n_people_ger.isna(), 'n_people'] = 0.5 * (df_all.loc[df_all.n_people_ger.isna(), 'n_people_us'] + df_all.loc[df_all.n_people_ger.isna(), 'n_people_ger'])
 print(df_all.n_people.isna().sum())
 
 ## if two values missing just take the third

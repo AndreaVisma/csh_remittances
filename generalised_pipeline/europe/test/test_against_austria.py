@@ -7,6 +7,7 @@ import re
 from pandas.tseries.offsets import MonthEnd
 import plotly.express as px
 import plotly.io as pio
+import plotly.graph_objects as go
 pio.renderers.default = "browser"
 
 df_eu = pd.read_pickle("C:\\Data\\migration\\bilateral_stocks\\europe\\processed_european_hosts_3obs.pkl")
@@ -27,6 +28,11 @@ df = df_eu[['origin', 'age_group', 'sex', 'n_people']].merge(
 fig1 = px.scatter(df, x = "n_people_at", y = "n_people_mine",
                   hover_data=["origin", "age_group", "sex"],
                   trendline="ols")
+fig1.add_trace(go.Scatter(
+    x=list(range(int(df.n_people_at.max()))),
+    y=list(range(int(df.n_people_at.max()))),
+    name = "1:1 line"
+))
 fig1.show()
 results = px.get_trendline_results(fig1)
 print(results.iloc[0].item().summary())

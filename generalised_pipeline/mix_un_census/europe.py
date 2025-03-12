@@ -46,7 +46,9 @@ df_eur = df_eur[df_eur.date.dt.month == 1]
 
 groups, n_people_ita, n_people_ger, sexes, origins, destinations, dates = [], [], [], [], [], [], []
 
-for dest in tqdm(europe_countries, desc="Processing ..."):
+pbar = tqdm(europe_countries)
+for dest in pbar:
+    pbar.set_description(f"Processing {dest}")
     df_un_dest = df_un[df_un.destination == dest]
     for origin in df_un_dest['origin'].unique():
         for year in [2010, 2015, 2020]:
@@ -61,10 +63,12 @@ for dest in tqdm(europe_countries, desc="Processing ..."):
                         ratios_ita = [int(x * tot_group) for x in list(df_ori.pct_ita)]
                     except:
                         ratios_ita = [np.nan] * len(age_groups)
+                        # print(f"no people from {origin} in Italy in {year}")
                     try:
                         ratios_ger = [int(x * tot_group) for x in list(df_ori.pct_ger)]
                     except:
                         ratios_ger = [np.nan] * len(age_groups)
+                        # print(f"no people from {origin} in Germany in {year}")
                     groups.extend(age_groups)
                     n_people_ita.extend(ratios_ita)
                     n_people_ger.extend(ratios_ger)
