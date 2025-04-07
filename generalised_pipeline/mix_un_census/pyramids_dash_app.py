@@ -36,7 +36,9 @@ app.layout = html.Div([
             dcc.Dropdown(
                 id='origin-dropdown',
                 options=[{'label': o, 'value': o} for o in origins],
-                value=origins[0]
+                value=origins[0],
+                searchable=True,  # <--- Added
+                placeholder="Search or select origin..."
             )
         ], style={'width': '30%', 'display': 'inline-block'}),
 
@@ -45,7 +47,9 @@ app.layout = html.Div([
             dcc.Dropdown(
                 id='destination-dropdown',
                 options=[{'label': d, 'value': d} for d in destinations],
-                value=destinations[0]
+                value=destinations[0],
+                searchable=True,  # <--- Added
+                placeholder="Search or select destination..."
             )
         ], style={'width': '30%', 'display': 'inline-block'}),
 
@@ -55,7 +59,8 @@ app.layout = html.Div([
                 id='month-dropdown',
                 options=date_options,
                 value=default_date,
-                placeholder="Select Year-Month"
+                searchable=True,  # <--- Added
+                placeholder="Search or select month (YYYY-MM)..."
             )
         ], style={'width': '40%', 'display': 'inline-block'})
     ]),
