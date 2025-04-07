@@ -37,63 +37,7 @@ ita = ita[['date', 'origin', 'destination', 'age_group', 'sex', 'n_people']]
 ##
 df_all = pd.concat([latam, euro, row, df_us, ger, ita])
 df_all.to_pickle("C:\\Data\\migration\\bilateral_stocks\\complete_stock_hosts_3obs.pkl")
-#
-# # Preprocess date and sort
-# df_all['date'] = pd.to_datetime(df_all['date'])
-# df_all.sort_values('date', inplace=True)
-#
-# # Precompute mean age mapping
-# age_mean_dict = {
-#     ag: np.mean(list(map(int, re.findall(r'\d+', ag))))
-#     for ag in df_all['age_group'].unique()
-# }
-#
-# df_months = []
-#
-# # Process each destination country
-# for dest_country in tqdm(df_all['destination'].unique()[2:], desc="Processing Destinations"):
-#     df_dest = df_all[df_all['destination'] == dest_country]
-#     if df_dest.empty:
-#         continue
-#
-#     # Precompute time values
-#     start_date = df_dest['date'].min()
-#     end_date = df_dest['date'].max()
-#     monthly_dates = pd.date_range(start_date, end_date, freq='M')
-#     monthly_times = (monthly_dates - start_date).days
-#     df_dest['time'] = (df_dest['date'] - start_date).dt.days
-#
-#     # Group by origin, age_group, sex and filter groups with sufficient data
-#     grouped = df_dest.groupby(['origin', 'age_group', 'sex'])
-#     dest_data = []
-#
-#     for (origin, age, sex), group in grouped:
-#         if len(group) < 2:
-#             continue  # Skip groups with insufficient data points
-#
-#         try:
-#             cs = CubicSpline(group['time'], group['n_people'])
-#             vals = cs(monthly_times)
-#         except Exception:
-#             continue
-#
-#         # Create DataFrame for valid group
-#         dest_data.append(pd.DataFrame({
-#             'date': monthly_dates,
-#             'origin': origin,
-#             'age_group': age,
-#             'sex': sex,
-#             'n_people': vals.round().astype(int),
-#             'mean_age': age_mean_dict[age],
-#             'destination': dest_country
-#         }))
-#
-#     if dest_data:
-#         df_months.extend(dest_data)
-#
-# # Concatenate all results at once
-# df_months = pd.concat(df_months, ignore_index=True)
-#
+
 df_all['date'] = pd.to_datetime(df_all['date'])
 df_all.sort_values('date', inplace = True)
 
