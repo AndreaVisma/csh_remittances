@@ -8,6 +8,7 @@ import plotly.express as px
 import plotly.io as pio
 import plotly.graph_objects as go
 pio.renderers.default = "browser"
+from pandas.tseries.offsets import MonthEnd
 
 
 ## load un bilat matrix by sex
@@ -46,7 +47,9 @@ df.loc[df.year == 2024, 'yrly_growth_rate'] = df.loc[df.year == 2024, 'yrly_grow
 
 df['origin'] = df.origin.map(dict_names)
 df['destination'] = df.destination.map(dict_names)
-df.to_excel("C://data//migration//stock_pct_change.xlsx", index = False)
+df['date'] = pd.to_datetime(df.year, format="%Y") + MonthEnd(0)
+
+df.to_pickle("C://data//migration//stock_pct_change.pkl")
 
 # keep only pairs with more than 100 people
 df = df[df.n_people > 1000]
