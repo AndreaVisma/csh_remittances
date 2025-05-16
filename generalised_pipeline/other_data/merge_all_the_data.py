@@ -36,6 +36,7 @@ growth_rates = pd.read_pickle("C://data//migration//stock_pct_change.pkl")
 
 ## gdp differential
 df_gdp = (pd.read_pickle("c:\\data\\economic\\gdp\\annual_gdp_deltas.pkl"))
+df_gdp['gdp_diff_norm'] = 2* (df_gdp['gdp_diff'] - df_gdp['gdp_diff'].min()) / (df_gdp['gdp_diff'].max() - df_gdp['gdp_diff'].min()) - 1
 
 ##nta accounts
 df_nta = pd.read_pickle("C:\\Data\\economic\\nta\\processed_nta.pkl")
@@ -46,7 +47,7 @@ emdat = pd.read_pickle("C:\\Data\\my_datasets\\monthly_disasters_with_lags.pkl")
 
 
 list_dfs = []
-for country in tqdm(df.destination.unique()):
+for country in tqdm(df.destination.unique()[188:]):
     countries_or = (df[df.destination == country]['origin'].unique().tolist())
     df_country_ita = df.query(f"""`origin` in {countries_or} and `destination` == '{country}'""")
     df_country_ita = df_country_ita[[x for x in df.columns if x != 'sex']].groupby(

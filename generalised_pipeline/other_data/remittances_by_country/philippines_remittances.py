@@ -34,3 +34,9 @@ df_all = pd.concat(df_list)
 df_all['remittances'] *= 1_000
 
 df_all.to_pickle("C:\\Data\\remittances\\Philippines\\phil_remittances_detail.pkl")
+
+##############################################
+# PLOT SOME
+##############################################
+
+df_all = pd.read_pickle("C:\\Data\\remittances\\Philippines\\phil_remittances_detail.pkl")
