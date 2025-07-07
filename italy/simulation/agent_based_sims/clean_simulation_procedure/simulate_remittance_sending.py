@@ -38,15 +38,34 @@ dict_dis_par = dict(zip(['eq', 'dr', 'fl', 'st', 'tot'], [eq_par, dr_par, fl_par
 df_dis = compute_disasters_theta(df, dict_dis_par)
 
 ### simulate one country without disasters
-nep_res = simulate_one_country_no_disasters(country = "Bangladesh", dem_params = dem_params,
+nep_res_no = simulate_one_country_no_disasters(country = "Bangladesh", dem_params = dem_params,
                                             df_rem_group = df_rem_group, df_ag_long = df_ag_long,
                                             plot = True, disable_progress = False)
+nep_res_no['sim_remittances_no'] = nep_res_no.simulated_senders * rem_amount * 1.6
 nep_res['sim_remittances'] = nep_res.simulated_senders * rem_amount
 goodness_of_fit_results(nep_res)
 
 ### simulate one country with disasters
-nep_res = simulate_one_country_with_disasters(df_dis, "Bangladesh", True)
-nep_res['sim_remittances'] = nep_res.simulated_senders * rem_amount
+nep_res = simulate_one_country_with_disasters(df_dis, df, country = "Bangladesh", plot = True)
+nep_res['sim_remittances'] = nep_res.simulated_senders * rem_amount * 1.6
+nep_res = nep_res.merge(nep_res_no[['date', 'sim_remittances_no']], on = 'date')
+df_plot = nep_res.copy()
+df_plot['date'] = pd.to_datetime(df_plot['date'])
+df_plot = df_plot[df_plot['date'].dt.year >= 2015]
+
+plt.figure(figsize=(6, 6))
+plt.plot(df_plot['date'], df_plot['remittances'], label='Observed', linestyle='-', color='blue')
+plt.plot(df_plot['date'], df_plot['sim_remittances'], label='Simulated, considering disasters', linestyle='-', color='red')
+plt.plot(df_plot['date'], df_plot['sim_remittances_no'], label='Simulated, not considering disasters', linestyle='-', color='green')
+
+# Formatting
+plt.xlabel('Date')
+plt.ylabel('Remittances (USD)')
+plt.title('Observed vs Simulated Remittances')
+plt.legend()
+plt.grid(True)
+plt.show(block = True)
+
 goodness_of_fit_results(nep_res)
 
 ### simulate all countries (deterministic)

@@ -25,5 +25,5 @@ plt.legend()
 plt.grid(True)
 plt.show(block = True)
 
-df_betas = pd.DataFrame({'growth_rate' : x_new, 'beta_estimate' : beta_estimated})
+df_betas = pd.DataFrame({'yrly_growth_rate' : x_new, 'beta_estimate' : beta_estimated})
 df_betas.to_pickle("C:\\Data\\migration\\simulations\\exponential_betas.pkl")

@@ -7,6 +7,9 @@ from scipy.interpolate import CubicSpline
 import matplotlib.pyplot as plt
 import time
 import itertools
+import plotly.express as px
+import plotly.io as pio
+pio.renderers.default = "browser"
 from random import sample
 import warnings
 warnings.filterwarnings("ignore", category=RuntimeWarning)
@@ -246,6 +249,15 @@ fixed_remittance = 1100  # Amount each sender sends
 a = 0.6
 c = 1.
 
+def plot_country_mean(df):
+    df_mean = df[['origin', 'remittances', 'sim_remittances']].groupby(['origin']).mean().reset_index()
+    fig = px.scatter(df_mean, x = 'remittances', y = 'sim_remittances',
+                     color = 'origin', log_x=True, log_y=True)
+    fig.add_scatter(x=np.linspace(0, df_mean.remittances.max(), 100),
+                    y=np.linspace(0, df_mean.remittances.max(), 100))
+    fig.show()
+    goodness_of_fit_results(df_mean)
+
 def check_initial_guess():
     countries = all_countries
     global nta_dict
@@ -307,7 +319,7 @@ fixed_remittance_space = [800]  # Amount each sender sends
 
 #############
 results_list = []
-n_repetitions = 1
+n_repetitions = 10
 for f in tqdm(range(n_repetitions)):
     countries = sample(all_countries, int(len(all_countries) * 0.6))
     global nta_dict
@@ -373,7 +385,12 @@ for f in tqdm(range(n_repetitions)):
 
                                 df_country = df_country_.copy()
 
+import pickle
+with open('model_results.pkl', 'wb') as fi:
+    pickle.dump(results_list, fi)
 
+with open('model_results.pkl', 'rb') as fi:
+    loaded_data = pickle.load(fi)
 ################
 
 min_tuple_each_run = []
@@ -384,13 +401,73 @@ for f in tqdm(range(n_repetitions)):
     min_tuple = sub_data[min_tuple_index]
     min_tuple_each_run.append(min_tuple)
 
-best_params = min_tuple[0]
-param_nta = best_params["nta"]
-param_stay = best_params["stay"]
-param_asy = best_params["asy"]
-param_gdp = best_params["gdp"]
-a = best_params["a"]
-c = best_params["c"]
-fixed_remittance = best_params["rem_value"]
+def r_squared_all_and_mean():
+    countries = all_countries
+    global nta_dict
+    # df country
+    df_country = df.query(f"""`origin` in {countries} and `destination` == '{destination}'""")
+    df_country = df_country[[x for x in df.columns if x != 'sex']].groupby(
+        ['date', 'origin', 'age_group', 'mean_age', 'destination']).mean().reset_index()
+    # asy
+    asy_df_country = asy_df.query(f"""`destination` == '{destination}'""")
+    df_country = df_country.merge(asy_df_country[["date", "asymmetry", "origin"]],
+                                  on=["date", "origin"], how='left').ffill()
+    # growth rates
+    growth_rates_cr = growth_rates.query(f"""`destination` == '{destination}'""")
+    df_country = df_country.merge(growth_rates_cr[["date", "yrly_growth_rate", "origin"]],
+                                  on=["date", "origin"], how='left')
+    df_country['yrly_growth_rate'] = df_country['yrly_growth_rate'].bfill()
+    df_country['yrly_growth_rate'] = df_country['yrly_growth_rate'].apply(lambda x: round(x, 2))
+    df_country = df_country.merge(df_betas, on="yrly_growth_rate", how='left')
+    ##gdp diff
+    df_gdp_cr = df_gdp.query(f"""`destination` == '{destination}'""")
+    df_country = df_country.merge(df_gdp_cr[["date", "gdp_diff_norm", "origin"]], on=["date", "origin"],
+                                  how='left')
+    df_country['gdp_diff_norm'] = df_country['gdp_diff_norm'].bfill()
+    ## nta
+    df_nta_country = df_nta.query(f"""`country` == '{destination}'""")[['age', 'nta']].fillna(0)
+    emdat_ = df_scores[df_scores.origin.isin(countries)]
+
+    for ind, row in df_nta_country.iterrows():
+        nta_dict[int(row.age)] = round(row.nta, 2)
+    dis_params['tot'] = [a, c]
+    try:
+        df_country.drop(columns=f"tot_score", inplace=True)
+    except:
+        pass
+    df_country = df_country.merge(
+        emdat_[(emdat_.value_a == a) & (emdat_.value_c == c)]
+        [[f"tot_score", "origin", "date"]], on=["date", "origin"], how="left")
+    df_country['tot_score'] = df_country['tot_score'].fillna(0)
+
+    df_country['sim_remittances'] = df_country.apply(simulate_row_grouped_deterministic, axis=1)
+    remittance_per_period = df_country.groupby(['date', 'origin'])['sim_remittances'].sum().reset_index()
+    remittance_per_period = remittance_per_period.merge(df_rem_group, on=['date', 'origin'], how="left")
+    remittance_per_period['error_squared'] = (remittance_per_period['remittances'] -
+                                              remittance_per_period['sim_remittances']) ** 2
+    remittance_per_period['error'] = remittance_per_period['remittances'] - remittance_per_period['sim_remittances']
+    SS_res = np.sum(np.square(remittance_per_period['error']))
+    SS_tot = np.sum(np.square(remittance_per_period['remittances'] - np.mean(remittance_per_period['remittances'])))
+    R_squared = 1 - (SS_res / SS_tot)
+    print(f"R-squared: {round(R_squared, 3)}")
+    df_mean = remittance_per_period[['origin', 'remittances', 'sim_remittances']].groupby(['origin']).mean().reset_index()
+    df_mean['error'] = df_mean['remittances'] - df_mean['sim_remittances']
+    SS_res = np.sum(np.square(df_mean['error']))
+    SS_tot = np.sum(np.square(df_mean['remittances'] - np.mean(df_mean['remittances'])))
+    R_squared = 1 - (SS_res / SS_tot)
+    print(f"R-squared means: {round(R_squared, 3)}")
+
+for min_tuple in min_tuple_each_run:
+    best_params = min_tuple[0]
+    print(best_params)
+    print(f"Abs error: {min_tuple[1] / 1_000_000_000_000}")
+    param_nta = best_params["nta"]
+    param_stay = best_params["stay"]
+    param_asy = best_params["asy"]
+    param_gdp = best_params["gdp"]
+    a = best_params["a"]
+    c = best_params["c"]
+    fixed_remittance = best_params["rem_value"]
+    r_squared_all_and_mean()
 
 check_initial_guess()

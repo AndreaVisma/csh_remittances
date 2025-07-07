@@ -15,9 +15,9 @@ df_ita.sort_values('age', inplace = True)
 
 age = df_ita['age'].values
 
-age_param = -0.006
-age_param_2 = 0.08
-h_param = 40
+age_param = -0.0064
+age_param_2 = 0.102
+h_param = 44
 
 def probability_func(age):
     exponent = (age_param * np.power(age - h_param, 2) +

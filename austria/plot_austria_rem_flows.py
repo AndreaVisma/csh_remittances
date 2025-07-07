@@ -1,4 +1,5 @@
 import pandas as pd
+
 import networkx as nx
 import plotly.graph_objects as go
 import geopandas as gpd
@@ -28,6 +29,11 @@ df_outflow = pd.melt(df_outflow, id_vars='Zielland', value_vars=df_outflow.colum
                     value_name='mln_euros', var_name='year')
 df_outflow['Remittances flow'] = 'from Austria'
 df_outflow.rename(columns = {'Zielland':'country'}, inplace = True)
+
+out_group = df_outflow[['year', 'mln_euros']].groupby('year').sum().reset_index()
+out_group = out_group[(out_group.year > 2010) & (out_group.year < 2021)]
+print(f"Total remittances sent between 2011 and 2023: {1.12 * out_group.mln_euros.sum() / 1_000} billion euros")
+print(f"disasters response = {0.011 * 1.12 * out_group.mln_euros.sum()} million euros")
 
 #merge
 df = pd.concat([df_inflow, df_outflow])

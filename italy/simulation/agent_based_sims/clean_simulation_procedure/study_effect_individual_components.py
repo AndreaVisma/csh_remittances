@@ -63,7 +63,7 @@ def show_components_effect(country):
     fig.show()
 
 show_components_effect("Pakistan")
-show_components_effect("Germany")
+show_components_effect("Syria")
 
 ##########
 # Effect of individual disasters
@@ -127,4 +127,4 @@ def show_disasters_effect(df, country):
         yaxis2=dict(title='Remittances',overlaying='y',side='right', range=[-y2_range, y2_range]),template='plotly_white')
     fig.show()
 
-show_disasters_effect(df, "Mexico")
+show_disasters_effect(df, "Bangladesh")

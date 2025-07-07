@@ -191,3 +191,27 @@ italy_close_countries = ['Albania', 'Austria', 'Belgium', 'Egypt',
        'Morocco', 'Netherlands', 'North Macedonia', 'Norway','Poland',
        'Portugal', 'Romania', 'San Marino', 'Serbia', 'Slovakia', 'Slovenia',
        'Spain', 'Sweden', 'Switzerland', 'Tunisia', 'Ukraine','United Kingdom']
+
+def zero_values_before_first_positive_and_after_first_negative(lst):
+    modified = lst.copy()
+    # Find first positive
+    first_positive = next((i for i, x in enumerate(lst) if x > 0), None)
+
+    if first_positive is not None:
+        # Zero before first positive
+        for i in range(first_positive):
+            modified[i] = 0
+
+        # Find first negative AFTER the first positive
+        first_negative_after = next(
+            (i for i, x in enumerate(lst[first_positive:], start=first_positive) if x < 0),
+            None
+        )
+
+        if first_negative_after is not None:
+            # Zero positives after first negative encountered post-positive
+            for i in range(first_negative_after, len(modified)):
+                if modified[i] > 0:
+                    modified[i] = 0
+
+    return modified

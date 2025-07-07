@@ -9,7 +9,8 @@ df_rem = pd.read_excel("c:\\data\\remittances\\austria\\quarterly_remittances_se
 df = df_pop.merge(df_rem, on = ['country', 'year', 'quarter'], how = 'inner')
 
 #natural disasters
-df_nd = pd.read_excel("C:\\Data\\natural_disasters\\emdat_country_type_quarterly.xlsx")
+df_nd = pd.read_excel("C:\\Data\\natural_disasters\\emdat_country_type.xlsx")
+
 #clean dates
 df_nd[['Start Year','Start Month', 'Start Day']] = (
     df_nd[['Start Year','Start Month', 'Start Day']].fillna(1).astype(int))

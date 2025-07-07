@@ -9,13 +9,14 @@ latam = pd.read_pickle("C:\\Data\\migration\\bilateral_stocks\\latam\\processed_
 euro = pd.read_pickle("C:\\Data\\migration\\bilateral_stocks\\europe\\processed_european_hosts_3obs.pkl")
 row = pd.read_pickle("C:\\Data\\migration\\bilateral_stocks\\world\\processed_row_hosts_3obs.pkl")
 ##
-df_us = pd.read_pickle("C:\\Data\\migration\\bilateral_stocks\\us\\processed_usa.pkl")
-df_us = df_us[df_us.date.isin(["2010-01-31", "2015-01-31", "2020-01-31"])]
-df_us['mean_age'] = df_us['age_group'].apply(lambda x: np.mean([int(y) for y in re.findall(r'\d+', x)]))
-bins = pd.interval_range(start=0, periods=20, end = 100, closed = "left")
-labels = [f"{5*i}-{5*i+4}" for i in range(20)]
-df_us["age_group"] = pd.cut(df_us.mean_age, bins = bins).map(dict(zip(bins, labels)))
-df_us = df_us[['date', 'origin', 'destination', 'age_group', 'sex', 'n_people']]
+df_us = pd.read_pickle("C:\\Data\\migration\\bilateral_stocks\\world\\processed_row_hosts_3obs_only_us.pkl")
+# df_us = pd.read_pickle("C:\\Data\\migration\\bilateral_stocks\\us\\processed_usa.pkl")
+# df_us = df_us[df_us.date.isin(["2010-01-31", "2015-01-31", "2020-01-31"])]
+# df_us['mean_age'] = df_us['age_group'].apply(lambda x: np.mean([int(y) for y in re.findall(r'\d+', x)]))
+# bins = pd.interval_range(start=0, periods=20, end = 100, closed = "left")
+# labels = [f"{5*i}-{5*i+4}" for i in range(20)]
+# df_us["age_group"] = pd.cut(df_us.mean_age, bins = bins).map(dict(zip(bins, labels)))
+# df_us = df_us[['date', 'origin', 'destination', 'age_group', 'sex', 'n_people']]
 
 #
 ger = pd.read_pickle("C:\\Data\\migration\\bilateral_stocks\\germany\\processed_germany.pkl")
@@ -42,7 +43,7 @@ df_all['date'] = pd.to_datetime(df_all['date'])
 df_all.sort_values('date', inplace = True)
 
 list_df_months = []
-pbar = tqdm(df_all.destination.unique()[2:])
+pbar = tqdm(["USA"])#df_all.destination.unique())
 for dest_country in pbar:
     pbar.set_description(f"Processing {dest_country} .. ")
     df_destination = df_all[df_all.destination == dest_country].copy()
@@ -80,4 +81,19 @@ for dest_country in pbar:
     list_df_months.append(df_month)
 
 df_months = pd.concat(list_df_months)
-df_months.to_pickle("C:\\Data\\migration\\bilateral_stocks\\complete_stock_hosts_interpolated.pkl")
+
+df_months_old = pd.read_pickle("C:\\Data\\migration\\bilateral_stocks\\complete_stock_hosts_interpolated.pkl")
+df_months_old = df_months_old[df_months_old.destination != "USA"]
+
+df_months_w_us = pd.concat([df_months_old, df_months])
+
+##############
+# check us mex
+import plotly.express as px
+import plotly.io as pio
+pio.renderers.default = "browser"
+mex = df_months_w_us[df_months_w_us.destination == 'USA'][['origin', 'n_people', 'date']].groupby(['origin', 'date']).sum().reset_index()
+fig = px.line(mex, x = 'date', y = 'n_people', color='origin')
+fig.show()
+
+df_months_w_us.to_pickle("C:\\Data\\migration\\bilateral_stocks\\complete_stock_hosts_interpolated.pkl")

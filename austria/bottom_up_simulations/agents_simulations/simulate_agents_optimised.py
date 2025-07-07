@@ -37,7 +37,7 @@ amount_sent = 450
 deviation_money = 0
 ####################
 # run_sims(2019)
-c_val = -4
+c_val = -3.5
 age_param = -0.0064
 age_param_2 = 0.102
 h_param = 44
@@ -82,8 +82,8 @@ df['year'] = df['year'].astype(int)
 # df_all = df.loc[df.index.repeat(4)].reset_index(drop=True)
 # quarters = np.tile([1, 2, 3, 4], len(df_all) // 4)
 # df_all['quarter'] = quarters
-# df = df.merge(result, on = ['country', 'year'], how = 'left')
-# df.fillna(0, inplace = True)
+df = df.merge(result, on = ['country', 'year'], how = 'left')
+df.fillna(0, inplace = True)
 
 ## load remittances info
 df_rem_quarter = pd.read_excel("c:\\data\\my_datasets\\remittances_austria_panel_quarterly.xlsx")
@@ -312,7 +312,7 @@ totals['quarter'] = totals['quarter'].astype(str)
 totals['year'] = totals['year'].astype(str)
 totals['relative_error'] = 100 * totals['error'] / totals['obs_remittances']
 fig = px.scatter(totals, x = 'obs_remittances', y='sim_remittances',
-                 color = 'country', log_x = True, log_y = True)
+                 color = 'country', log_x = False, log_y = False)
 fig.add_scatter(x = np.linspace(0,25_000_000, 100),
               y = np.linspace(0,25_000_000, 100))
 fig.show()

@@ -9,7 +9,7 @@ pio.renderers.default = 'browser'
 df = pd.read_excel("C:\\Data\\natural_disasters\\disasters_start_end_dates.xlsx")
 df = df[df.total_affected > 0]
 df['log_affected'] = df.total_affected.map(np.log)
-df_rem = pd.read_csv("c:\\data\\my_datasets\\weekly_remittances_austria.csv")
+df_rem = pd.read_csv("c:\\data\\my_datasets\\weekly_remittances\\weekly_remittances_austria.csv")
 df_rem['remittances'] /= 52
 
 # Ensure start_date and end_date are in datetime format
@@ -74,7 +74,7 @@ def plot_disasters_country(country):
 
 plot_disasters_country('Mexico')
 plot_disasters_country('Turkey')
-plot_disasters_country('Czechia')
+plot_disasters_country('China')
 plot_disasters_country('Germany')
 plot_disasters_country('Syria')
 plot_disasters_country('Afghanistan')

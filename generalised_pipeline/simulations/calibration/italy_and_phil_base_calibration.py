@@ -195,30 +195,46 @@ def simulate_row_grouped_deterministic(row, separate_disasters = False, group_si
     # Calculate the total remitted amount for this row.
     # total_remittance = total_senders * fixed_remittance * group_size
     return total_senders
+def give_everyone_fixed_probability(row, separate_disasters = False, group_size=25):
+
+    total_senders = int(row['n_people']) * 0.6
+
+    # Calculate the total remitted amount for this row.
+    # total_remittance = total_senders * fixed_remittance * group_size
+    return total_senders
 
 #########################3
-values_a = np.linspace(-1, 1, 11)
-values_c = np.linspace(0, 1.5, 7)
+values_a = np.linspace(-1, 1, 6)
+values_c = np.linspace(0, 1.5, 6)
+
 
 def compute_disasters_scores_all_countries(df, values_a, values_c):
+    # Compute disaster totals only once
+    for i in range(12):
+        df[f"tot_{i}"] = df[f"eq_{i}"] + df[f"dr_{i}"] + df[f"fl_{i}"] + df[f"st_{i}"]
+
+    disaster_cols = [f"tot_{j}" for j in range(12)]
+    df_totals = df[disaster_cols].values
+
     df_list = []
-    for disaster in ['tot']:
-        for a in values_a:
-            for c in values_c:
-                df_disaster = pd.DataFrame([])
-                params = [sin_function_simple(a, c, x) for x in np.linspace(0, 11, 12)]
-                disaster_cols = [f"{disaster}_{i}" for i in range(12)]
-                weights = np.array([params[i] for i in range(12)])
-                impacts = df[disaster_cols].values.dot(weights)
-                df_disaster['origin'] = df['origin']
-                df_disaster['date'] = df['date']
-                df_disaster["value_a"] = round(a,2)
-                df_disaster["value_c"] = round(c,2)
-                df_disaster["disaster"] = disaster
-                df_disaster[f"{disaster}_score"] = impacts
-                df_list.append(df_disaster)
-    df_output = pd.concat(df_list)
-    return df_output
+    for a in tqdm(values_a):
+        for c in values_c:
+            params = [sin_function_simple(a, c, x) for x in np.linspace(0, 11, 12)]
+            params = zero_values_before_first_positive_and_after_first_negative(params)
+            # Compute dot product row-wise (vectorized)
+            scores = df_totals @ np.array(params)
+
+            df_disaster = pd.DataFrame({
+                'origin': df['origin'],
+                'date': df['date'],
+                'value_a': round(a, 2),
+                'value_c': round(c, 2),
+                'disaster': 'tot',
+                'tot_score': scores
+            })
+            df_list.append(df_disaster)
+
+    return pd.concat(df_list, ignore_index=True)
 
 out = compute_disasters_scores_all_countries(emdat, values_a, values_c)
 out.to_pickle("C:\\Data\\my_datasets\\disaster_scores_only_tot.pkl")
@@ -244,14 +260,14 @@ phil_dest_countries = (df[df.origin == "Philippines"]['destination'].unique().to
 phil_countries_high_remittances = df_rem_group[(df_rem_group.remittances > 1_000_000) & (df_rem_group.origin == "Philippines")].destination.unique().tolist()
 phil_all_countries = list(set(phil_dest_countries).intersection(set(phil_countries_high_remittances)))
 
-param_nta = 1
-param_stay = -0.2
-param_asy = -3.5
-param_gdp = 0.5
-fixed_remittance_ita = 800  # Amount each sender sends
-fixed_remittance_phil = 1300
-a = 0.6
-c = 1.
+param_nta = 1.2
+param_stay = 0
+param_asy = -2.5
+param_gdp = 5
+fixed_remittance_ita = 350  # Amount each sender sends
+fixed_remittance_phil = 700
+a = 0.7
+c = 0
 
 def plot_country_mean(df, two_countries = False):
     if two_countries:
@@ -304,7 +320,7 @@ def plot_country_mean(df, two_countries = False):
     fig.show()
     goodness_of_fit_results(df_mean)
 
-def check_initial_guess():
+def check_initial_guess(fixed_probability = False):
     countries_ita = ita_all_countries
     countries_phil = phil_all_countries
     global nta_dict
@@ -318,9 +334,9 @@ def check_initial_guess():
     # asy
     asy_df_ita = asy_df.query(f"""`destination` == 'Italy'""")
     asy_df_phil = asy_df.query(f"""`origin` == 'Philippines'""")
-    df_country_ita = df_country_ita.merge(asy_df_ita[["date", "asymmetry", "origin"]],
+    df_country_ita = df_country_ita.sort_values(['origin', 'date']).sort_values(['origin', 'date']).merge(asy_df_ita[["date", "asymmetry", "origin"]],
                                   on=["date", "origin"], how='left').ffill()
-    df_country_phil = df_country_phil.merge(asy_df_phil[["date", "asymmetry", "destination"]],
+    df_country_phil = df_country_phil.sort_values(['origin', 'date']).sort_values(['origin', 'date']).merge(asy_df_phil[["date", "asymmetry", "destination"]],
                                           on=["date", "destination"], how='left').ffill()
     # growth rates
     growth_rates_ita = growth_rates.query(f"""`destination` == 'Italy'""")
@@ -364,7 +380,10 @@ def check_initial_guess():
         emdat_[(emdat_.value_a == a) & (emdat_.value_c == c)]
         [[f"tot_score", "origin", "date"]], on=["date", "origin"], how="left")
     df_country_ita['tot_score'] = df_country_ita['tot_score'].fillna(0)
-    df_country_ita['sim_senders'] = df_country_ita.apply(simulate_row_grouped_deterministic, axis=1)
+    if not fixed_probability:
+        df_country_ita['sim_senders'] = df_country_ita.apply(simulate_row_grouped_deterministic, axis=1)
+    else:
+        df_country_ita['sim_senders'] = df_country_ita.apply(give_everyone_fixed_probability, axis=1)
     df_country_ita['sim_remittances'] = df_country_ita['sim_senders'] * fixed_remittance_ita
 
     list_sims = []
@@ -381,7 +400,10 @@ def check_initial_guess():
             emdat_[(emdat_.value_a == a) & (emdat_.value_c == c)]
             [[f"tot_score", "origin", "date"]], on=["date", "origin"], how="left")
         df_sim['tot_score'] = df_sim['tot_score'].fillna(0)
-        df_sim['sim_senders'] = df_sim.apply(simulate_row_grouped_deterministic, axis=1)
+        if not fixed_probability:
+            df_sim['sim_senders'] = df_sim.apply(simulate_row_grouped_deterministic, axis=1)
+        else:
+            df_sim['sim_senders'] = df_sim.apply(give_everyone_fixed_probability, axis=1)
         list_sims.append(df_sim)
     df_country_phil = pd.concat(list_sims)
     df_country_phil['sim_remittances'] = df_country_phil['sim_senders'] * fixed_remittance_phil
@@ -396,49 +418,72 @@ def check_initial_guess():
     plot_country_mean(remittance_per_period, two_countries=True)
 
 
-check_initial_guess()
+check_initial_guess(fixed_probability=False)
 
 ##########################
 values_a = [0]# np.linspace(-1, 1, 2)
 values_c = [0]# np.linspace(0, 1.5, 2)
-param_nta_space = [round(x,2) for x in np.linspace(0.5, 1.5, 4)]
-param_stay_space = [round(x,2) for x in np.linspace(-0.8, 0, 4)]
-param_asy_space = [round(x,2) for x in np.linspace(-4, -2, 4)]
-param_gdp_space = [round(x,2) for x in np.linspace(0, 1, 4)]
-fixed_remittance_space = [800]  # Amount each sender sends
+param_nta_space = [round(x,2) for x in np.linspace(0.5, 1.5, 6)]
+param_stay_space = [round(x,2) for x in np.linspace(-0.8, 0, 6)]
+param_asy_space = [round(x,2) for x in np.linspace(-4, -2, 6)]
+param_gdp_space = [round(x,2) for x in np.linspace(0, 1, 6)]
+# fixed_remittance_space = [800]  # Amount each sender sends
 
 #############
 results_list = []
-n_repetitions = 10
+n_repetitions = 6
 for f in tqdm(range(n_repetitions)):
-    countries = sample(all_countries, int(len(all_countries) * 0.6))
+    countries_ita = sample(ita_all_countries, int(len(ita_all_countries) * 0.6))
+    countries_phil = sample(phil_all_countries, int(len(phil_all_countries) * 0.6))
+
     global nta_dict
     # df country
-    df_country = df.query(f"""`origin` in {countries} and `destination` == '{destination}'""")
-    df_country = df_country[[x for x in df.columns if x != 'sex']].groupby(
+    df_country_ita = df.query(f"""`origin` in {countries_ita} and `destination` == 'Italy'""")
+    df_country_phil = df.query(f"""`origin` == 'Philippines' and `destination` in {countries_phil}""")
+    df_country_ita = df_country_ita[[x for x in df.columns if x != 'sex']].groupby(
+        ['date', 'origin', 'age_group', 'mean_age', 'destination']).mean().reset_index()
+    df_country_phil = df_country_phil[[x for x in df.columns if x != 'sex']].groupby(
         ['date', 'origin', 'age_group', 'mean_age', 'destination']).mean().reset_index()
     # asy
-    asy_df_country = asy_df.query(f"""`destination` == '{destination}'""")
-    df_country = df_country.merge(asy_df_country[["date", "asymmetry", "origin"]],
-                                  on=["date", "origin"], how='left').ffill()
+    asy_df_ita = asy_df.query(f"""`destination` == 'Italy'""")
+    asy_df_phil = asy_df.query(f"""`origin` == 'Philippines'""")
+    df_country_ita = df_country_ita.sort_values(['origin', 'date']).sort_values(['origin', 'date']).merge(asy_df_ita[["date", "asymmetry", "origin"]],
+                                          on=["date", "origin"], how='left').ffill()
+    df_country_phil = df_country_phil.sort_values(['origin', 'date']).sort_values(['origin', 'date']).merge(asy_df_phil[["date", "asymmetry", "destination"]],
+                                            on=["date", "destination"], how='left').ffill()
     # growth rates
-    growth_rates_cr = growth_rates.query(f"""`destination` == '{destination}'""")
-    df_country = df_country.merge(growth_rates_cr[["date", "yrly_growth_rate", "origin"]],
-                                  on=["date", "origin"], how='left')
-    df_country['yrly_growth_rate'] = df_country['yrly_growth_rate'].bfill()
-    df_country['yrly_growth_rate'] = df_country['yrly_growth_rate'].apply(lambda x: round(x, 2))
-    df_country = df_country.merge(df_betas, on="yrly_growth_rate", how='left')
+    growth_rates_ita = growth_rates.query(f"""`destination` == 'Italy'""")
+    growth_rates_phil = growth_rates.query(f"""`origin` == 'Philippines'""")
+    df_country_ita = df_country_ita.merge(growth_rates_ita[["date", "yrly_growth_rate", "origin"]],
+                                          on=["date", "origin"], how='left')
+    df_country_phil = df_country_phil.merge(growth_rates_phil[["date", "yrly_growth_rate", "destination"]],
+                                            on=["date", "destination"], how='left')
+
+    df_country_ita['yrly_growth_rate'] = df_country_ita['yrly_growth_rate'].bfill()
+    df_country_ita['yrly_growth_rate'] = df_country_ita['yrly_growth_rate'].apply(lambda x: round(x, 2))
+    df_country_ita = df_country_ita.merge(df_betas, on="yrly_growth_rate", how='left')
+    df_country_phil['yrly_growth_rate'] = df_country_phil['yrly_growth_rate'].bfill()
+    df_country_phil['yrly_growth_rate'] = df_country_phil['yrly_growth_rate'].apply(lambda x: round(x, 2))
+    df_country_phil = df_country_phil.merge(df_betas, on="yrly_growth_rate", how='left')
+
     ##gdp diff
-    df_gdp_cr = df_gdp.query(f"""`destination` == '{destination}'""")
-    df_country = df_country.merge(df_gdp_cr[["date", "gdp_diff_norm", "origin"]], on=["date", "origin"],
-                                  how='left')
-    df_country['gdp_diff_norm'] = df_country['gdp_diff_norm'].bfill()
+    df_gdp_ita = df_gdp.query(f"""`destination` == 'Italy'""")
+    df_gdp_phil = df_gdp.query(f"""`origin` == 'Philippines'""")
+    df_country_ita = df_country_ita.merge(df_gdp_ita[["date", "gdp_diff_norm", "origin"]], on=["date", "origin"],
+                                          how='left')
+    df_country_ita['gdp_diff_norm'] = df_country_ita['gdp_diff_norm'].bfill()
+    df_country_phil = df_country_phil.merge(df_gdp_phil[["date", "gdp_diff_norm", "destination"]],
+                                            on=["date", "destination"],
+                                            how='left')
+    df_country_phil['gdp_diff_norm'] = df_country_phil['gdp_diff_norm'].bfill()
+
     ## nta
-    df_nta_country = df_nta.query(f"""`country` == '{destination}'""")[['age', 'nta']].fillna(0)
-    for ind, row in df_nta_country.iterrows():
-        nta_dict[int(row.age)] = round(row.nta, 2)
-    emdat_ = df_scores[df_scores.origin.isin(countries)]
-    df_country_ = df_country.copy()
+    df_nta_ita = df_nta.query(f"""`country` == 'Italy'""")[['age', 'nta']].fillna(0)
+    df_nta_phil = df_nta[df_nta.country.isin(countries_phil)][['country', 'age', 'nta']].fillna(0)
+
+    emdat_ = df_scores[df_scores.origin.isin(countries_ita + ["Philippines"])]
+    df_country_ita_ = df_country_ita.copy()
+    df_country_phil_ = df_country_phil.copy()
 
     for param_nta in tqdm(param_nta_space):
         for param_asy in param_asy_space:
@@ -449,17 +494,39 @@ for f in tqdm(range(n_repetitions)):
                             for c in values_c:
                                 dis_params['tot'] = [a,c]
                                 try:
-                                    df_country.drop(columns=f"tot_score", inplace=True)
+                                    df_country_ita.drop(columns=f"tot_score", inplace=True)
                                 except:
                                     pass
-                                df_country = df_country.merge(
+                                df_country_ita = df_country_ita.merge(
                                     emdat_[(emdat_.disaster == 'tot') & (emdat_.value_a == a) & (emdat_.value_c == c)]
                                     [[f"tot_score", "origin", "date"]], on=["date", "origin"], how="left")
-                                df_country['tot_score'] = df_country['tot_score'].fillna(0)
+                                df_country_ita['tot_score'] = df_country_ita['tot_score'].fillna(0)
 
-                                df_country['sim_remittances'] = df_country.apply(simulate_row_grouped_deterministic, axis=1)
-                                remittance_per_period = df_country.groupby(['date', 'origin'])['sim_remittances'].sum().reset_index()
-                                remittance_per_period = remittance_per_period.merge(df_rem_group, on=['date', 'origin'], how="left")
+                                df_country_ita['sim_senders'] = df_country_ita.apply(simulate_row_grouped_deterministic, axis=1)
+                                df_country_ita['sim_remittances'] = df_country_ita.sim_senders * fixed_remittance_ita
+
+                                list_sims = []
+                                for country in tqdm(
+                                        list(set(df_nta_phil.country).intersection(set(phil_all_countries)))):
+                                    df_sim = df_country_phil[df_country_phil.destination == country].copy()
+                                    for ind, row in df_nta_phil[df_nta_phil.country == country].iterrows():
+                                        nta_dict[int(row.age)] = round(row.nta, 2)
+                                    dis_params['tot'] = [a, c]
+                                    try:
+                                        df_sim.drop(columns=f"tot_score", inplace=True)
+                                    except:
+                                        pass
+                                    df_sim = df_sim.merge(
+                                        emdat_[(emdat_.value_a == a) & (emdat_.value_c == c)]
+                                        [[f"tot_score", "origin", "date"]], on=["date", "origin"], how="left")
+                                    df_sim['tot_score'] = df_sim['tot_score'].fillna(0)
+                                    df_sim['sim_senders'] = df_sim.apply(simulate_row_grouped_deterministic, axis=1)
+                                    list_sims.append(df_sim)
+                                df_country_phil = pd.concat(list_sims)
+                                df_country_phil['sim_remittances'] = df_country_phil['sim_senders'] * fixed_remittance_phil
+                                df_country = pd.concat([df_country_ita, df_country_phil])
+                                remittance_per_period = df_country.groupby(['date', 'origin', 'destination'])['sim_remittances'].sum().reset_index()
+                                remittance_per_period = remittance_per_period.merge(df_rem_group, on=['date', 'origin', 'destination'], how="left")
                                 remittance_per_period['error_squared'] = (remittance_per_period['remittances'] -
                                                                           remittance_per_period['sim_remittances']) ** 2
 
@@ -473,13 +540,14 @@ for f in tqdm(range(n_repetitions)):
                                 results_run = [dict_params, remittance_per_period['error_squared'].mean()] + [f]
                                 results_list.append(results_run)
 
-                                df_country = df_country_.copy()
+                                df_country_ita = df_country_ita_.copy()
+                                df_country_phil = df_country_phil_.copy()
 
 import pickle
-with open('model_results.pkl', 'wb') as fi:
+with open('model_results_ita_phil.pkl', 'wb') as fi:
     pickle.dump(results_list, fi)
 
-with open('model_results.pkl', 'rb') as fi:
+with open('model_results_ita_phil.pkl', 'rb') as fi:
     loaded_data = pickle.load(fi)
 ################
 
@@ -492,47 +560,90 @@ for f in tqdm(range(n_repetitions)):
     min_tuple_each_run.append(min_tuple)
 
 def r_squared_all_and_mean():
-    countries = all_countries
+    countries_ita = ita_all_countries
+    countries_phil = phil_all_countries
+
     global nta_dict
     # df country
-    df_country = df.query(f"""`origin` in {countries} and `destination` == '{destination}'""")
-    df_country = df_country[[x for x in df.columns if x != 'sex']].groupby(
+    df_country_ita = df.query(f"""`origin` in {countries_ita} and `destination` == 'Italy'""")
+    df_country_phil = df.query(f"""`origin` == 'Philippines' and `destination` in {countries_phil}""")
+    df_country_ita = df_country_ita[[x for x in df.columns if x != 'sex']].groupby(
+        ['date', 'origin', 'age_group', 'mean_age', 'destination']).mean().reset_index()
+    df_country_phil = df_country_phil[[x for x in df.columns if x != 'sex']].groupby(
         ['date', 'origin', 'age_group', 'mean_age', 'destination']).mean().reset_index()
     # asy
-    asy_df_country = asy_df.query(f"""`destination` == '{destination}'""")
-    df_country = df_country.merge(asy_df_country[["date", "asymmetry", "origin"]],
-                                  on=["date", "origin"], how='left').ffill()
+    asy_df_ita = asy_df.query(f"""`destination` == 'Italy'""")
+    asy_df_phil = asy_df.query(f"""`origin` == 'Philippines'""")
+    df_country_ita = df_country_ita.sort_values(['origin', 'date']).merge(asy_df_ita[["date", "asymmetry", "origin"]],
+                                          on=["date", "origin"], how='left').ffill()
+    df_country_phil = df_country_phil.sort_values(['origin', 'date']).merge(asy_df_phil[["date", "asymmetry", "destination"]],
+                                            on=["date", "destination"], how='left').ffill()
     # growth rates
-    growth_rates_cr = growth_rates.query(f"""`destination` == '{destination}'""")
-    df_country = df_country.merge(growth_rates_cr[["date", "yrly_growth_rate", "origin"]],
-                                  on=["date", "origin"], how='left')
-    df_country['yrly_growth_rate'] = df_country['yrly_growth_rate'].bfill()
-    df_country['yrly_growth_rate'] = df_country['yrly_growth_rate'].apply(lambda x: round(x, 2))
-    df_country = df_country.merge(df_betas, on="yrly_growth_rate", how='left')
-    ##gdp diff
-    df_gdp_cr = df_gdp.query(f"""`destination` == '{destination}'""")
-    df_country = df_country.merge(df_gdp_cr[["date", "gdp_diff_norm", "origin"]], on=["date", "origin"],
-                                  how='left')
-    df_country['gdp_diff_norm'] = df_country['gdp_diff_norm'].bfill()
-    ## nta
-    df_nta_country = df_nta.query(f"""`country` == '{destination}'""")[['age', 'nta']].fillna(0)
-    emdat_ = df_scores[df_scores.origin.isin(countries)]
+    growth_rates_ita = growth_rates.query(f"""`destination` == 'Italy'""")
+    growth_rates_phil = growth_rates.query(f"""`origin` == 'Philippines'""")
+    df_country_ita = df_country_ita.merge(growth_rates_ita[["date", "yrly_growth_rate", "origin"]],
+                                          on=["date", "origin"], how='left')
+    df_country_phil = df_country_phil.merge(growth_rates_phil[["date", "yrly_growth_rate", "destination"]],
+                                            on=["date", "destination"], how='left')
 
-    for ind, row in df_nta_country.iterrows():
-        nta_dict[int(row.age)] = round(row.nta, 2)
+    df_country_ita['yrly_growth_rate'] = df_country_ita['yrly_growth_rate'].bfill()
+    df_country_ita['yrly_growth_rate'] = df_country_ita['yrly_growth_rate'].apply(lambda x: round(x, 2))
+    df_country_ita = df_country_ita.merge(df_betas, on="yrly_growth_rate", how='left')
+    df_country_phil['yrly_growth_rate'] = df_country_phil['yrly_growth_rate'].bfill()
+    df_country_phil['yrly_growth_rate'] = df_country_phil['yrly_growth_rate'].apply(lambda x: round(x, 2))
+    df_country_phil = df_country_phil.merge(df_betas, on="yrly_growth_rate", how='left')
+
+    ##gdp diff
+    df_gdp_ita = df_gdp.query(f"""`destination` == 'Italy'""")
+    df_gdp_phil = df_gdp.query(f"""`origin` == 'Philippines'""")
+    df_country_ita = df_country_ita.merge(df_gdp_ita[["date", "gdp_diff_norm", "origin"]], on=["date", "origin"],
+                                          how='left')
+    df_country_ita['gdp_diff_norm'] = df_country_ita['gdp_diff_norm'].bfill()
+    df_country_phil = df_country_phil.merge(df_gdp_phil[["date", "gdp_diff_norm", "destination"]],
+                                            on=["date", "destination"],
+                                            how='left')
+    df_country_phil['gdp_diff_norm'] = df_country_phil['gdp_diff_norm'].bfill()
+
+    ## nta
+    df_nta_ita = df_nta.query(f"""`country` == 'Italy'""")[['age', 'nta']].fillna(0)
+    df_nta_phil = df_nta[df_nta.country.isin(countries_phil)][['country', 'age', 'nta']].fillna(0)
+
+    emdat_ = df_scores[df_scores.origin.isin(countries_ita + ["Philippines"])]
     dis_params['tot'] = [a, c]
     try:
-        df_country.drop(columns=f"tot_score", inplace=True)
+        df_country_ita.drop(columns=f"tot_score", inplace=True)
     except:
         pass
-    df_country = df_country.merge(
-        emdat_[(emdat_.value_a == a) & (emdat_.value_c == c)]
+    df_country_ita = df_country_ita.merge(
+        emdat_[(emdat_.disaster == 'tot') & (emdat_.value_a == a) & (emdat_.value_c == c)]
         [[f"tot_score", "origin", "date"]], on=["date", "origin"], how="left")
-    df_country['tot_score'] = df_country['tot_score'].fillna(0)
+    df_country_ita['tot_score'] = df_country_ita['tot_score'].fillna(0)
 
-    df_country['sim_remittances'] = df_country.apply(simulate_row_grouped_deterministic, axis=1)
-    remittance_per_period = df_country.groupby(['date', 'origin'])['sim_remittances'].sum().reset_index()
-    remittance_per_period = remittance_per_period.merge(df_rem_group, on=['date', 'origin'], how="left")
+    df_country_ita['sim_senders'] = df_country_ita.apply(simulate_row_grouped_deterministic, axis=1)
+    df_country_ita['sim_remittances'] = df_country_ita.sim_senders * fixed_remittance_ita
+
+    list_sims = []
+    for country in tqdm(
+            list(set(df_nta_phil.country).intersection(set(phil_all_countries)))):
+        df_sim = df_country_phil[df_country_phil.destination == country].copy()
+        for ind, row in df_nta_phil[df_nta_phil.country == country].iterrows():
+            nta_dict[int(row.age)] = round(row.nta, 2)
+        dis_params['tot'] = [a, c]
+        try:
+            df_sim.drop(columns=f"tot_score", inplace=True)
+        except:
+            pass
+        df_sim = df_sim.merge(
+            emdat_[(emdat_.value_a == a) & (emdat_.value_c == c)]
+            [[f"tot_score", "origin", "date"]], on=["date", "origin"], how="left")
+        df_sim['tot_score'] = df_sim['tot_score'].fillna(0)
+        df_sim['sim_senders'] = df_sim.apply(simulate_row_grouped_deterministic, axis=1)
+        list_sims.append(df_sim)
+    df_country_phil = pd.concat(list_sims)
+    df_country_phil['sim_remittances'] = df_country_phil['sim_senders'] * fixed_remittance_phil
+    df_country = pd.concat([df_country_ita, df_country_phil])
+    remittance_per_period = df_country.groupby(['date', 'origin', 'destination'])['sim_remittances'].sum().reset_index()
+    remittance_per_period = remittance_per_period.merge(df_rem_group, on=['date', 'origin', 'destination'], how="left")
     remittance_per_period['error_squared'] = (remittance_per_period['remittances'] -
                                               remittance_per_period['sim_remittances']) ** 2
     remittance_per_period['error'] = remittance_per_period['remittances'] - remittance_per_period['sim_remittances']
@@ -559,5 +670,263 @@ for min_tuple in min_tuple_each_run:
     c = best_params["c"]
     fixed_remittance = best_params["rem_value"]
     r_squared_all_and_mean()
+
+check_initial_guess()
+
+##########################################
+# calibrate disasters
+##########################################
+##########################
+values_a = np.linspace(-1, 1, 6)
+values_c = np.linspace(0, 1.5, 6)
+
+param_nta = best_params["nta"]
+param_stay = best_params["stay"]
+param_asy = best_params["asy"]
+param_gdp = best_params["gdp"]
+
+results_list = []
+n_repetitions = 1
+for f in tqdm(range(n_repetitions)):
+    countries_ita = sample(ita_all_countries, int(len(ita_all_countries) * 1))
+    countries_phil = sample(phil_all_countries, int(len(phil_all_countries) * 1))
+
+    global nta_dict
+    # df country
+    df_country_ita = df.query(f"""`origin` in {countries_ita} and `destination` == 'Italy'""")
+    df_country_phil = df.query(f"""`origin` == 'Philippines' and `destination` in {countries_phil}""")
+    df_country_ita = df_country_ita[[x for x in df.columns if x != 'sex']].groupby(
+        ['date', 'origin', 'age_group', 'mean_age', 'destination']).mean().reset_index()
+    df_country_phil = df_country_phil[[x for x in df.columns if x != 'sex']].groupby(
+        ['date', 'origin', 'age_group', 'mean_age', 'destination']).mean().reset_index()
+    # asy
+    asy_df_ita = asy_df.query(f"""`destination` == 'Italy'""")
+    asy_df_phil = asy_df.query(f"""`origin` == 'Philippines'""")
+    df_country_ita = df_country_ita.sort_values(['origin', 'date']).merge(asy_df_ita[["date", "asymmetry", "origin"]],
+                                          on=["date", "origin"], how='left').ffill()
+    df_country_phil = df_country_phil.sort_values(['origin', 'date']).merge(asy_df_phil[["date", "asymmetry", "destination"]],
+                                            on=["date", "destination"], how='left').ffill()
+    # growth rates
+    growth_rates_ita = growth_rates.query(f"""`destination` == 'Italy'""")
+    growth_rates_phil = growth_rates.query(f"""`origin` == 'Philippines'""")
+    df_country_ita = df_country_ita.merge(growth_rates_ita[["date", "yrly_growth_rate", "origin"]],
+                                          on=["date", "origin"], how='left')
+    df_country_phil = df_country_phil.merge(growth_rates_phil[["date", "yrly_growth_rate", "destination"]],
+                                            on=["date", "destination"], how='left')
+
+    df_country_ita['yrly_growth_rate'] = df_country_ita['yrly_growth_rate'].bfill()
+    df_country_ita['yrly_growth_rate'] = df_country_ita['yrly_growth_rate'].apply(lambda x: round(x, 2))
+    df_country_ita = df_country_ita.merge(df_betas, on="yrly_growth_rate", how='left')
+    df_country_phil['yrly_growth_rate'] = df_country_phil['yrly_growth_rate'].bfill()
+    df_country_phil['yrly_growth_rate'] = df_country_phil['yrly_growth_rate'].apply(lambda x: round(x, 2))
+    df_country_phil = df_country_phil.merge(df_betas, on="yrly_growth_rate", how='left')
+
+    ##gdp diff
+    df_gdp_ita = df_gdp.query(f"""`destination` == 'Italy'""")
+    df_gdp_phil = df_gdp.query(f"""`origin` == 'Philippines'""")
+    df_country_ita = df_country_ita.merge(df_gdp_ita[["date", "gdp_diff_norm", "origin"]], on=["date", "origin"],
+                                          how='left')
+    df_country_ita['gdp_diff_norm'] = df_country_ita['gdp_diff_norm'].bfill()
+    df_country_phil = df_country_phil.merge(df_gdp_phil[["date", "gdp_diff_norm", "destination"]],
+                                            on=["date", "destination"],
+                                            how='left')
+    df_country_phil['gdp_diff_norm'] = df_country_phil['gdp_diff_norm'].bfill()
+
+    ## nta
+    df_nta_ita = df_nta.query(f"""`country` == 'Italy'""")[['age', 'nta']].fillna(0)
+    df_nta_phil = df_nta[df_nta.country.isin(countries_phil)][['country', 'age', 'nta']].fillna(0)
+
+    emdat_ = df_scores[df_scores.origin.isin(countries_ita + ["Philippines"])]
+    df_country_ita_ = df_country_ita.copy()
+    df_country_phil_ = df_country_phil.copy()
+
+    for a in tqdm(values_a):
+        for c in values_c:
+            dis_params['tot'] = [a,c]
+            try:
+                df_country_ita.drop(columns=f"tot_score", inplace=True)
+            except:
+                pass
+            df_country_ita = df_country_ita.merge(
+                emdat_[(emdat_.disaster == 'tot') & (emdat_.value_a == a) & (emdat_.value_c == c)]
+                [[f"tot_score", "origin", "date"]], on=["date", "origin"], how="left")
+            df_country_ita['tot_score'] = df_country_ita['tot_score'].fillna(0)
+
+            df_country_ita['sim_senders'] = df_country_ita.apply(simulate_row_grouped_deterministic, axis=1)
+            df_country_ita['sim_remittances'] = df_country_ita.sim_senders * fixed_remittance_ita
+
+            list_sims = []
+            for country in list(set(df_nta_phil.country).intersection(set(phil_all_countries))):
+                df_sim = df_country_phil[df_country_phil.destination == country].copy()
+                for ind, row in df_nta_phil[df_nta_phil.country == country].iterrows():
+                    nta_dict[int(row.age)] = round(row.nta, 2)
+                dis_params['tot'] = [a, c]
+                try:
+                    df_sim.drop(columns=f"tot_score", inplace=True)
+                except:
+                    pass
+                df_sim = df_sim.merge(
+                    emdat_[(emdat_.value_a == a) & (emdat_.value_c == c)]
+                    [[f"tot_score", "origin", "date"]], on=["date", "origin"], how="left")
+                df_sim['tot_score'] = df_sim['tot_score'].fillna(0)
+                df_sim['sim_senders'] = df_sim.apply(simulate_row_grouped_deterministic, axis=1)
+                list_sims.append(df_sim)
+            df_country_phil = pd.concat(list_sims)
+            df_country_phil['sim_remittances'] = df_country_phil['sim_senders'] * fixed_remittance_phil
+            df_country = pd.concat([df_country_ita, df_country_phil])
+            remittance_per_period = df_country.groupby(['date', 'origin', 'destination'])['sim_remittances'].sum().reset_index()
+            remittance_per_period = remittance_per_period.merge(df_rem_group, on=['date', 'origin', 'destination'], how="left")
+            remittance_per_period['error_squared'] = (remittance_per_period['remittances'] -
+                                                      remittance_per_period['sim_remittances']) ** 2
+
+            dict_params = {"nta" : param_nta,
+                           "asy" : param_asy,
+                           "stay" : param_stay,
+                           "gdp" : param_gdp,
+                           "a" : a,
+                           "c" : c,
+                           "rem_value" : fixed_remittance}
+            results_run = [dict_params, remittance_per_period['error_squared'].mean()] + [f]
+            results_list.append(results_run)
+
+            df_country_ita = df_country_ita_.copy()
+            df_country_phil = df_country_phil_.copy()
+
+import pickle
+with open('model_results_ita_phil_disasters.pkl', 'wb') as fi:
+    pickle.dump(results_list, fi)
+
+with open('model_results_ita_phil_disasters.pkl', 'rb') as fi:
+    loaded_data = pickle.load(fi)
+
+
+min_tuple_each_run = []
+for f in tqdm(range(n_repetitions)):
+    sub_data = [x for x in results_list if x[2] == f]
+    flattened_data = [item[1] for item in sub_data]
+    min_tuple_index = flattened_data.index(min(flattened_data))
+    min_tuple = sub_data[min_tuple_index]
+    min_tuple_each_run.append(min_tuple)
+
+def r_squared_all_and_mean():
+    countries_ita = ita_all_countries
+    countries_phil = phil_all_countries
+
+    global nta_dict
+    # df country
+    df_country_ita = df.query(f"""`origin` in {countries_ita} and `destination` == 'Italy'""")
+    df_country_phil = df.query(f"""`origin` == 'Philippines' and `destination` in {countries_phil}""")
+    df_country_ita = df_country_ita[[x for x in df.columns if x != 'sex']].groupby(
+        ['date', 'origin', 'age_group', 'mean_age', 'destination']).mean().reset_index()
+    df_country_phil = df_country_phil[[x for x in df.columns if x != 'sex']].groupby(
+        ['date', 'origin', 'age_group', 'mean_age', 'destination']).mean().reset_index()
+    # asy
+    asy_df_ita = asy_df.query(f"""`destination` == 'Italy'""")
+    asy_df_phil = asy_df.query(f"""`origin` == 'Philippines'""")
+    df_country_ita = df_country_ita.sort_values(['origin', 'date']).merge(asy_df_ita[["date", "asymmetry", "origin"]],
+                                          on=["date", "origin"], how='left').ffill()
+    df_country_phil = df_country_phil.sort_values(['origin', 'date']).merge(asy_df_phil[["date", "asymmetry", "destination"]],
+                                            on=["date", "destination"], how='left').ffill()
+    # growth rates
+    growth_rates_ita = growth_rates.query(f"""`destination` == 'Italy'""")
+    growth_rates_phil = growth_rates.query(f"""`origin` == 'Philippines'""")
+    df_country_ita = df_country_ita.merge(growth_rates_ita[["date", "yrly_growth_rate", "origin"]],
+                                          on=["date", "origin"], how='left')
+    df_country_phil = df_country_phil.merge(growth_rates_phil[["date", "yrly_growth_rate", "destination"]],
+                                            on=["date", "destination"], how='left')
+
+    df_country_ita['yrly_growth_rate'] = df_country_ita['yrly_growth_rate'].bfill()
+    df_country_ita['yrly_growth_rate'] = df_country_ita['yrly_growth_rate'].apply(lambda x: round(x, 2))
+    df_country_ita = df_country_ita.merge(df_betas, on="yrly_growth_rate", how='left')
+    df_country_phil['yrly_growth_rate'] = df_country_phil['yrly_growth_rate'].bfill()
+    df_country_phil['yrly_growth_rate'] = df_country_phil['yrly_growth_rate'].apply(lambda x: round(x, 2))
+    df_country_phil = df_country_phil.merge(df_betas, on="yrly_growth_rate", how='left')
+
+    ##gdp diff
+    df_gdp_ita = df_gdp.query(f"""`destination` == 'Italy'""")
+    df_gdp_phil = df_gdp.query(f"""`origin` == 'Philippines'""")
+    df_country_ita = df_country_ita.merge(df_gdp_ita[["date", "gdp_diff_norm", "origin"]], on=["date", "origin"],
+                                          how='left')
+    df_country_ita['gdp_diff_norm'] = df_country_ita['gdp_diff_norm'].bfill()
+    df_country_phil = df_country_phil.merge(df_gdp_phil[["date", "gdp_diff_norm", "destination"]],
+                                            on=["date", "destination"],
+                                            how='left')
+    df_country_phil['gdp_diff_norm'] = df_country_phil['gdp_diff_norm'].bfill()
+
+    ## nta
+    df_nta_ita = df_nta.query(f"""`country` == 'Italy'""")[['age', 'nta']].fillna(0)
+    df_nta_phil = df_nta[df_nta.country.isin(countries_phil)][['country', 'age', 'nta']].fillna(0)
+
+    emdat_ = df_scores[df_scores.origin.isin(countries_ita + ["Philippines"])]
+    dis_params['tot'] = [a, c]
+    try:
+        df_country_ita.drop(columns=f"tot_score", inplace=True)
+    except:
+        pass
+    df_country_ita = df_country_ita.merge(
+        emdat_[(emdat_.disaster == 'tot') & (emdat_.value_a == a) & (emdat_.value_c == c)]
+        [[f"tot_score", "origin", "date"]], on=["date", "origin"], how="left")
+    df_country_ita['tot_score'] = df_country_ita['tot_score'].fillna(0)
+
+    df_country_ita['sim_senders'] = df_country_ita.apply(simulate_row_grouped_deterministic, axis=1)
+    df_country_ita['sim_remittances'] = df_country_ita.sim_senders * fixed_remittance_ita
+
+    list_sims = []
+    for country in tqdm(
+            list(set(df_nta_phil.country).intersection(set(phil_all_countries)))):
+        df_sim = df_country_phil[df_country_phil.destination == country].copy()
+        for ind, row in df_nta_phil[df_nta_phil.country == country].iterrows():
+            nta_dict[int(row.age)] = round(row.nta, 2)
+        dis_params['tot'] = [a, c]
+        try:
+            df_sim.drop(columns=f"tot_score", inplace=True)
+        except:
+            pass
+        df_sim = df_sim.merge(
+            emdat_[(emdat_.value_a == a) & (emdat_.value_c == c)]
+            [[f"tot_score", "origin", "date"]], on=["date", "origin"], how="left")
+        df_sim['tot_score'] = df_sim['tot_score'].fillna(0)
+        df_sim['sim_senders'] = df_sim.apply(simulate_row_grouped_deterministic, axis=1)
+        list_sims.append(df_sim)
+    df_country_phil = pd.concat(list_sims)
+    df_country_phil['sim_remittances'] = df_country_phil['sim_senders'] * fixed_remittance_phil
+    df_country = pd.concat([df_country_ita, df_country_phil])
+    remittance_per_period = df_country.groupby(['date', 'origin', 'destination'])['sim_remittances'].sum().reset_index()
+    remittance_per_period = remittance_per_period.merge(df_rem_group, on=['date', 'origin', 'destination'], how="left")
+    remittance_per_period['error_squared'] = (remittance_per_period['remittances'] -
+                                              remittance_per_period['sim_remittances']) ** 2
+    remittance_per_period['error'] = remittance_per_period['remittances'] - remittance_per_period['sim_remittances']
+    SS_res = np.sum(np.square(remittance_per_period['error']))
+    SS_tot = np.sum(np.square(remittance_per_period['remittances'] - np.mean(remittance_per_period['remittances'])))
+    R_squared = 1 - (SS_res / SS_tot)
+    print(f"R-squared: {round(R_squared, 3)}")
+    df_mean = remittance_per_period[['origin', 'remittances', 'sim_remittances']].groupby(['origin']).mean().reset_index()
+    df_mean['error'] = df_mean['remittances'] - df_mean['sim_remittances']
+    SS_res = np.sum(np.square(df_mean['error']))
+    SS_tot = np.sum(np.square(df_mean['remittances'] - np.mean(df_mean['remittances'])))
+    R_squared = 1 - (SS_res / SS_tot)
+    print(f"R-squared means: {round(R_squared, 3)}")
+
+for min_tuple in min_tuple_each_run:
+    best_params = min_tuple[0]
+    print(best_params)
+    print(f"Abs error: {min_tuple[1] / 1_000_000_000_000}")
+    param_nta = best_params["nta"]
+    param_stay = best_params["stay"]
+    param_asy = best_params["asy"]
+    param_gdp = best_params["gdp"]
+    a = best_params["a"]
+    c = best_params["c"]
+    fixed_remittance = best_params["rem_value"]
+    r_squared_all_and_mean()
+
+#########################
+a = 0.5
+c = 0.5
+
+param_nta = best_params["nta"]
+param_stay = best_params["stay"]
+param_asy = best_params["asy"]
+param_gdp = best_params["gdp"]
 
 check_initial_guess()

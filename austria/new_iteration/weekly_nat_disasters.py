@@ -47,6 +47,23 @@ df_nd = df_nd[~df_nd.total_affected.isna()]
 df_nd["total_damage"] *= 1000
 df_nd["duration"] = (df_nd["end_date"] - df_nd["start_date"]).dt.days + 1
 
+import plotly.express as px
+df_nd_full = df_nd[~df_nd.isna()]
+
+fig = px.scatter(df_nd_full,
+                 x="total_affected",
+                 y="total_damage",
+                 color="Disaster Type",
+                 log_x=True,
+                 log_y=True,
+                 title="Total Damage vs. Total Affected by Disaster Type")
+
+fig.update_layout(xaxis_title="Total Affected (log scale)",
+                  yaxis_title="Total Damage (log scale)",
+                  template="plotly_white")
+fig.to_image("C:\\data\\disasters.png")
+fig.show()
+
 df_nd.to_excel("C:\\Data\\natural_disasters\\disasters_start_end_dates.xlsx", index = False)
 
 #########################

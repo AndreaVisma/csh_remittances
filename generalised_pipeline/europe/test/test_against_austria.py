@@ -10,7 +10,7 @@ import plotly.io as pio
 import plotly.graph_objects as go
 pio.renderers.default = "browser"
 
-df_eu = pd.read_pickle("C:\\Data\\migration\\bilateral_stocks\\europe\\processed_european_hosts_3obs.pkl")
+df_eu = pd.read_pickle("C:\\Data\\migration\\bilateral_stocks\\complete_stock_hosts_interpolated.pkl")
 df_eu = df_eu[df_eu.destination == "Austria"]
 df_eu = df_eu[df_eu.date.dt.year == 2020]
 
@@ -26,8 +26,7 @@ df = df_eu[['origin', 'age_group', 'sex', 'n_people']].merge(
     how = "inner", suffixes = ("_mine", "_at"))
 
 fig1 = px.scatter(df, x = "n_people_at", y = "n_people_mine",
-                  hover_data=["origin", "age_group", "sex"],
-                  trendline="ols")
+                  hover_data=["origin", "age_group", "sex"], color = 'origin')
 fig1.add_trace(go.Scatter(
     x=list(range(int(df.n_people_at.max()))),
     y=list(range(int(df.n_people_at.max()))),
@@ -38,3 +37,12 @@ results = px.get_trendline_results(fig1)
 print(results.iloc[0].item().summary())
 
 df = df[['origin','sex', 'n_people_mine', 'n_people_at']].groupby(["origin", "sex"]).sum().reset_index()
+
+fig1 = px.scatter(df, x = "n_people_at", y = "n_people_mine",
+                  hover_data=["origin","sex"], color = 'origin')
+fig1.add_trace(go.Scatter(
+    x=list(range(int(df.n_people_at.max()))),
+    y=list(range(int(df.n_people_at.max()))),
+    name = "1:1 line"
+))
+fig1.show()

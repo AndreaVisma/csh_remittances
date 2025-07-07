@@ -37,6 +37,7 @@ df_nat_monthly.rename(columns = disaster_names, inplace=True)
 
 # shift disasters
 df_nat_monthly['date'] = pd.to_datetime(df_nat_monthly['date'])
+df_nat_monthly.to_pickle("C:\\Data\\my_datasets\\monthly_disasters.pkl")
 
 ### remittances
 df_rem = df_rem.merge(df_nat_monthly, on = ["country", "date"], how = 'left')

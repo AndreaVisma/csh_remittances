@@ -3,10 +3,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 import plotly.express as px
+import plotly.io as pio
+pio.renderers.default = "browser"
 
 outfolder = ".\\italy\\plots\\plots_for_paper\\model_results\\"
 
-def goodness_of_fit_results(df, pred = False):
+def goodness_of_fit_results(df, two_countries = False, pred = False):
 
     df['error'] = df['remittances'] - df['sim_remittances']
     df['absolute_error'] = np.abs(df['error'])
@@ -25,6 +27,7 @@ def goodness_of_fit_results(df, pred = False):
 
     # R-squared
     SS_res = np.sum(np.square(df['error']))
+    print(f"Sum of squared errors: {round(SS_res, 3)}")
     SS_tot = np.sum(np.square(df['remittances'] - np.mean(df['remittances'])))
     R_squared = 1 - (SS_res / SS_tot)
     print(f"R-squared: {round(R_squared, 3)}")
@@ -51,7 +54,7 @@ def goodness_of_fit_results(df, pred = False):
     ax.plot(lims, lims, 'k-', alpha=1, zorder=1)
     plt.yscale('log')
     plt.xscale('log')
-    plt.grid()
+    plt.grid(True)
     if pred:
         fig.savefig(outfolder + "prediction_results.pdf")
     else:
@@ -195,3 +198,12 @@ def plot_correlation_remittances(df):
     results = px.get_trendline_results(fig).px_fit_results.iloc[0].summary()
     print(results)
     fig.show()
+
+def plot_country_mean(df):
+    df_mean = df[['origin', 'remittances', 'sim_remittances']].groupby(['origin']).mean().reset_index()
+    fig = px.scatter(df_mean, x = 'remittances', y = 'sim_remittances',
+                     color = 'origin', log_x=True, log_y=True)
+    fig.add_scatter(x=np.linspace(0, df_mean.remittances.max(), 100),
+                    y=np.linspace(0, df_mean.remittances.max(), 100))
+    fig.show()
+    goodness_of_fit_results(df_mean)

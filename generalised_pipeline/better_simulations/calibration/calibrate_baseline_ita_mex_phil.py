@@ -11,7 +11,8 @@ import plotly.graph_objects as go
 import plotly.express as px
 import plotly.io as pio
 pio.renderers.default = "browser"
-from random import sample
+from random import sample, uniform
+import random
 from pandas.tseries.offsets import MonthEnd
 import warnings
 warnings.filterwarnings("ignore", category=RuntimeWarning)
@@ -25,13 +26,17 @@ from utils import zero_values_before_first_positive_and_after_first_negative
 diasporas_file = "C:\\Data\\migration\\bilateral_stocks\\interpolated_stocks_and_dem_factors.pkl"
 df = pd.read_pickle(diasporas_file)
 df = df.dropna()
+df['year'] = df.date.dt.year
+
 
 ##nta accounts
 df_nta = pd.read_pickle("C:\\Data\\economic\\nta\\processed_nta.pkl")
 nta_dict = {}
 
 ###gdp to infer remittances amount
-df_gdp = pd.read_excel("c:\\data\\economic\\gdp\\annual_gdp_per_capita_clean.xlsx").groupby('country').mean().reset_index().rename(columns = {'country' : 'origin'}).drop(columns = 'year')
+df_gdp = pd.read_excel("c:\\data\\economic\\gdp\\annual_gdp_per_capita_clean.xlsx").rename(columns = {'country' : 'destination'})#.groupby('country').mean().reset_index().rename(columns = {'country' : 'origin'}).drop(columns = 'year')
+df = df.merge(df_gdp, on=['destination', 'year'], how='left')
+df['gdp'] = 0.18 * df['gdp'] / 12
 
 ## disasters
 emdat = pd.read_pickle("C:\\Data\\my_datasets\\monthly_disasters_with_lags.pkl")
@@ -92,11 +97,11 @@ def simulate_row_grouped_deterministic(row, separate_disasters=False, group_size
     # Calculate theta for each individual:
     # Here, asymmetry and gdp_diff (and even the beta from the growth rate) are constant for all individuals in the row.
     if separate_disasters:
-        theta = (param_nta * nta_values) - 2 + (param_stay * yrs_stay) \
+        theta = constant + (param_nta * (nta_values)) + (param_stay * yrs_stay) \
                 + (param_asy * row['asymmetry']) + (param_gdp * row['gdp_diff_norm']) \
                 + (row['eq_score']) + (row['fl_score']) + (row['st_score']) + (row['dr_score'])
     else:
-        theta = (param_nta * nta_values) - 2 + (param_stay * yrs_stay) \
+        theta = constant + (param_nta * (nta_values)) + (param_stay * yrs_stay) \
                 + (param_asy * row['asymmetry']) + (param_gdp * row['gdp_diff_norm']) \
                 + (row['tot_score'])
 
@@ -138,16 +143,18 @@ nic_all_countries = list(set(nic_dest_countries).intersection(set(nic_countries_
 
 param_nta = 2.5
 param_stay = 0
-param_asy = -2
+param_asy = -10
 param_gdp = 5
-fixed_remittance_ita = df_gdp[df_gdp.origin == 'Italy'].gdp.item() * 0.01 #350  # Amount each sender sends
-fixed_remittance_phil = df_gdp[df_gdp.origin == 'Japan'].gdp.item() * 0.018 #700
-fixed_remittance_mex = df_gdp[df_gdp.origin == 'USA'].gdp.item() * 0.013 #800
-fixed_remittance_nic = df_gdp[df_gdp.origin == 'USA'].gdp.item() * 0.011
-fixed_remittance_gua = df_gdp[df_gdp.origin == 'USA'].gdp.item() * 0.025 #800
-fixed_remittance_pak = df_gdp[df_gdp.origin == 'Italy'].gdp.item() * 0.015
+# each sender sends 18% of their monthly GDP
+# fixed_remittance_ita = df_gdp[df_gdp.destination == 'Italy'].gdp.item() * 0.015 #350  # Amount each sender sends
+# fixed_remittance_phil = df_gdp[df_gdp.destination == 'Japan'].gdp.item() * 0.015 #700
+# fixed_remittance_mex = df_gdp[df_gdp.destination == 'USA'].gdp.item() * 0.015 #800
+# fixed_remittance_nic = df_gdp[df_gdp.destination == 'USA'].gdp.item() * 0.015
+# fixed_remittance_gua = df_gdp[df_gdp.destination == 'USA'].gdp.item() * 0.015 #800
+# fixed_remittance_pak = df_gdp[df_gdp.destination == 'Italy'].gdp.item() * 0.015
 height = 0.6
 shape = 1
+constant = 0
 
 def plot_country_mean(df, two_countries = False):
     if two_countries:
@@ -326,28 +333,28 @@ def check_initial_guess_no_disasters(fixed_probability = False, plot = False):
 
     return remittance_per_period
 
-rem_per_period = check_initial_guess_no_disasters(fixed_probability=False)
+# rem_per_period = check_initial_guess_no_disasters(fixed_probability=False, plot = True)
 
 ## drop mexico
-rem_per_period = rem_per_period[rem_per_period.origin != "Mexico"]
-goodness_of_fit_results(rem_per_period)
-plot_country_mean(rem_per_period, two_countries=True)
+# rem_per_period = rem_per_period[rem_per_period.origin != "Mexico"]
+# goodness_of_fit_results(rem_per_period)
+# plot_country_mean(rem_per_period, two_countries=True)
 
 ############
 # now include disasters
 dict_scores = dict(zip([x for x in range(12)],
                        zero_values_before_first_positive_and_after_first_negative([height + shape * np.sin((np.pi / 6) * x) for x in range(1,13)])))
-def calculate_tot_score(emdat_ita, height, shape):
+def calculate_tot_score(emdat_ita, height, shape, shift):
     global dict_scores
     dict_scores = dict(zip([x for x in range(12)],
                            zero_values_before_first_positive_and_after_first_negative(
-                               [height + shape * np.sin((np.pi / 6) * x) for x in range(1, 13)])))
+                               [height + shape * np.sin((np.pi / 6) * (x+shift)) for x in range(1, 13)])))
     for x in range(12):
         emdat_ita[f"tot_{x}"] = emdat_ita[[f"eq_{x}",f"dr_{x}",f"fl_{x}",f"st_{x}"]].sum(axis =1) * dict_scores[x]
     emdat_ita["tot_score"] = emdat_ita[[x for x in emdat_ita.columns if "tot" in x]].sum(axis =1)
     return emdat_ita[['date', 'origin', 'tot_score']]
 
-def check_initial_guess_with_disasters(height, shape, fixed_probability = False, plot = False):
+def check_initial_guess_with_disasters(height, shape, shift, fixed_probability = False, plot = False):
     countries_ita = ita_all_countries
     countries_phil = phil_all_countries
     countries_pak = pak_all_countries
@@ -362,17 +369,17 @@ def check_initial_guess_with_disasters(height, shape, fixed_probability = False,
     df_country_gua = df.query(f"""`origin` == 'Guatemala' and `destination` == 'USA'""")
 
     df_country_ita = df_country_ita[[x for x in df.columns if x != 'sex']].groupby(
-        ['date', 'origin', 'age_group', 'mean_age', 'destination']).mean().reset_index()
+        ['date', 'year', 'origin', 'age_group', 'mean_age', 'destination', 'gdp']).mean().reset_index()
     df_country_phil = df_country_phil[[x for x in df.columns if x != 'sex']].groupby(
-        ['date', 'origin', 'age_group', 'mean_age', 'destination']).mean().reset_index()
+        ['date', 'year','origin', 'age_group', 'mean_age', 'destination', 'gdp']).mean().reset_index()
     df_country_pak = df_country_pak[[x for x in df.columns if x != 'sex']].groupby(
-        ['date', 'origin', 'age_group', 'mean_age', 'destination']).mean().reset_index()
+        ['date', 'year','origin', 'age_group', 'mean_age', 'destination', 'gdp']).mean().reset_index()
     df_country_nic = df_country_nic[[x for x in df.columns if x != 'sex']].groupby(
-        ['date', 'origin', 'age_group', 'mean_age', 'destination']).mean().reset_index()
+        ['date', 'year','origin', 'age_group', 'mean_age', 'destination', 'gdp']).mean().reset_index()
     df_country_mex = df_country_mex[[x for x in df.columns if x != 'sex']].groupby(
-        ['date', 'origin', 'age_group', 'mean_age', 'destination']).mean().reset_index()
+        ['date', 'year','origin', 'age_group', 'mean_age', 'destination', 'gdp']).mean().reset_index()
     df_country_gua = df_country_gua[[x for x in df.columns if x != 'sex']].groupby(
-        ['date', 'origin', 'age_group', 'mean_age', 'destination']).mean().reset_index()
+        ['date', 'year','origin', 'age_group', 'mean_age', 'destination', 'gdp']).mean().reset_index()
 
     ## nta
     df_nta_ita = df_nta.query(f"""`country` == 'Italy'""")[['age', 'nta']].fillna(0)
@@ -383,35 +390,35 @@ def check_initial_guess_with_disasters(height, shape, fixed_probability = False,
 
     ### include climate scores
     emdat_ita = emdat[emdat.origin.isin(df_country_ita.origin.unique())].copy()
-    emdat_ita = calculate_tot_score(emdat_ita, height, shape)
+    emdat_ita = calculate_tot_score(emdat_ita, height, shape, shift)
     df_country_ita = df_country_ita.merge(emdat_ita, on = ['origin', 'date'], how = 'left')
 
     emdat_mex = emdat[emdat.origin == "Mexico"].copy()
-    emdat_mex = calculate_tot_score(emdat_mex, height, shape)
+    emdat_mex = calculate_tot_score(emdat_mex, height, shape, shift)
     df_country_mex = df_country_mex.merge(emdat_mex, on=['origin', 'date'], how='left')
 
     emdat_phil = emdat[emdat.origin == "Philippines"].copy()
-    emdat_phil = calculate_tot_score(emdat_phil, height, shape)
+    emdat_phil = calculate_tot_score(emdat_phil, height, shape, shift)
     df_country_phil = df_country_phil.merge(emdat_phil, on=['origin', 'date'], how='left')
 
     emdat_gua = emdat[emdat.origin == "Guatemala"].copy()
-    emdat_gua = calculate_tot_score(emdat_gua, height, shape)
+    emdat_gua = calculate_tot_score(emdat_gua, height, shape, shift)
     df_country_gua = df_country_gua.merge(emdat_gua, on=['origin', 'date'], how='left')
 
     emdat_pak = emdat[emdat.origin == "Pakistan"].copy()
-    emdat_pak = calculate_tot_score(emdat_pak, height, shape)
+    emdat_pak = calculate_tot_score(emdat_pak, height, shape, shift)
     df_country_pak = df_country_pak.merge(emdat_pak, on=['origin', 'date'], how='left')
 
     emdat_nic = emdat[emdat.origin == "Nicaragua"].copy()
-    emdat_nic = calculate_tot_score(emdat_nic, height, shape)
+    emdat_nic = calculate_tot_score(emdat_nic, height, shape, shift)
     df_country_nic = df_country_nic.merge(emdat_nic, on=['origin', 'date'], how='left')
 
     if not fixed_probability:
-        print("Italy ...")
+        # print("Italy ...")
         for ind, row in df_nta_ita.iterrows():
             nta_dict[int(row.age)] = round(row.nta, 2)
         df_country_ita['sim_senders'] = df_country_ita.apply(simulate_row_grouped_deterministic, axis=1)
-        print("Mexico ...")
+        # print("Mexico ...")
         for ind, row in df_nta_mex.iterrows():
             nta_dict[int(row.age)] = round(row.nta, 2)
         df_country_mex['sim_senders'] = df_country_mex.apply(simulate_row_grouped_deterministic, axis=1)
@@ -421,12 +428,20 @@ def check_initial_guess_with_disasters(height, shape, fixed_probability = False,
         df_country_mex['sim_senders'] = df_country_mex.apply(give_everyone_fixed_probability, axis=1)
         df_country_gua['sim_senders'] = df_country_gua.apply(give_everyone_fixed_probability, axis=1)
 
-    df_country_ita['sim_remittances'] = df_country_ita['sim_senders'] * fixed_remittance_ita
-    df_country_mex['sim_remittances'] = df_country_mex['sim_senders'] * fixed_remittance_mex
-    df_country_gua['sim_remittances'] = df_country_gua['sim_senders'] * fixed_remittance_gua
+    # df_country_ita = df_country_ita.merge(df_gdp, on=['destination', 'year'], how='left')
+    # df_country_ita['gdp'] = 0.18 * df_country_ita['gdp'] / 12
+    df_country_ita['sim_remittances'] = df_country_ita['sim_senders'] * df_country_ita['gdp']
+
+    # df_country_mex = df_country_mex.merge(df_gdp, on=['destination', 'year'], how='left')
+    # df_country_mex['gdp'] = 0.18 * df_country_mex['gdp'] / 12
+    df_country_mex['sim_remittances'] = df_country_mex['sim_senders'] * df_country_mex['gdp']
+
+    # df_country_gua = df_country_gua.merge(df_gdp, on=['destination', 'year'], how='left')
+    # df_country_gua['gdp'] = 0.18 * df_country_gua['gdp'] / 12
+    df_country_gua['sim_remittances'] = df_country_gua['sim_senders'] * df_country_gua['gdp']
 
     ## PHILIPPINES
-    print("Philippines ...")
+    # print("Philippines ...")
     list_sims = []
     for country in list(set(df_nta_phil.country).intersection(set(phil_all_countries))):
         df_sim = df_country_phil[df_country_phil.destination == country].copy()
@@ -438,10 +453,12 @@ def check_initial_guess_with_disasters(height, shape, fixed_probability = False,
             df_sim['sim_senders'] = df_sim.apply(give_everyone_fixed_probability, axis=1)
         list_sims.append(df_sim)
     df_country_phil = pd.concat(list_sims)
-    df_country_phil['sim_remittances'] = df_country_phil['sim_senders'] * fixed_remittance_phil
+    # df_country_phil = df_country_phil.merge(df_gdp, on=['destination', 'year'], how='left')
+    # df_country_phil['gdp'] = 0.18 * df_country_phil['gdp'] / 12
+    df_country_phil['sim_remittances'] = df_country_phil['sim_senders'] * df_country_phil['gdp']
 
     ## PAKISTAN
-    print("Pakistan ...")
+    # print("Pakistan ...")
     list_sims = []
     for country in list(set(df_nta_pak.country).intersection(set(pak_all_countries))):
         df_sim = df_country_pak[df_country_pak.destination == country].copy()
@@ -453,10 +470,12 @@ def check_initial_guess_with_disasters(height, shape, fixed_probability = False,
             df_sim['sim_senders'] = df_sim.apply(give_everyone_fixed_probability, axis=1)
         list_sims.append(df_sim)
     df_country_pak = pd.concat(list_sims)
-    df_country_pak['sim_remittances'] = df_country_pak['sim_senders'] * fixed_remittance_pak
+    # df_country_pak = df_country_pak.merge(df_gdp, on=['destination', 'year'], how='left')
+    # df_country_pak['gdp'] = 0.18 * df_country_pak['gdp'] / 12
+    df_country_pak['sim_remittances'] = df_country_pak['sim_senders'] * df_country_pak['gdp']
 
     ## NICARAGUA
-    print("Nicaragua ...")
+    # print("Nicaragua ...")
     list_sims = []
     for country in list(set(df_nta_nic.country).intersection(set(nic_all_countries))):
         df_sim = df_country_nic[df_country_nic.destination == country].copy()
@@ -468,13 +487,15 @@ def check_initial_guess_with_disasters(height, shape, fixed_probability = False,
             df_sim['sim_senders'] = df_sim.apply(give_everyone_fixed_probability, axis=1)
         list_sims.append(df_sim)
     df_country_nic = pd.concat(list_sims)
-    df_country_nic['sim_remittances'] = df_country_nic['sim_senders'] * fixed_remittance_nic
+    # df_country_nic = df_country_nic.merge(df_gdp, on=['destination', 'year'], how='left')
+    # df_country_nic['gdp'] = 0.18 * df_country_nic['gdp'] / 12
+    df_country_nic['sim_remittances'] = df_country_nic['sim_senders'] * df_country_nic['gdp']
 
     df_country = pd.concat([df_country_ita, df_country_phil, df_country_mex, df_country_pak, df_country_gua, df_country_nic])
-    remittance_per_period = df_country.groupby(['date', 'origin', 'destination'])['sim_remittances'].sum().reset_index()
+    remittance_per_period = df_country.groupby(['date', 'origin', 'destination'])[['sim_remittances', 'sim_senders']].sum().reset_index()
     remittance_per_period = remittance_per_period.merge(df_rem_group, on=['date', 'origin', 'destination'], how="left")
-    remittance_per_period['error_squared'] = (remittance_per_period['remittances'] -
-                                              remittance_per_period['sim_remittances']) ** 2
+    # remittance_per_period['error_squared'] = (remittance_per_period['remittances'] -
+    #                                           remittance_per_period['sim_remittances']) ** 2
     if plot:
         goodness_of_fit_results(remittance_per_period)
 
@@ -482,15 +503,81 @@ def check_initial_guess_with_disasters(height, shape, fixed_probability = False,
 
     return remittance_per_period
 
-rem_per_period = check_initial_guess_with_disasters(height, shape, fixed_probability=False, plot = False)
+rem_per_period = check_initial_guess_with_disasters(height, shape, shift=1, fixed_probability=False, plot = True)
 
 ## compare with and without disasters
 rem_no_disaster = check_initial_guess_no_disasters(fixed_probability=False, plot = False)
 
-rem_with_disaster = check_initial_guess_with_disasters(height, shape, fixed_probability=False, plot = False)
+rem_with_disaster = check_initial_guess_with_disasters(height, shape, fixed_probability=False, plot = True)
 
 rem_comp = rem_no_disaster.merge(rem_with_disaster, on = ['date', 'origin', 'destination', 'remittances', 'year'],
                                  suffixes = ('_no', '_with'))
+
+######################################
+# run random selections for the optimisation
+#######################################
+df = df.merge(df_rem, on =['date', 'origin', 'destination'], how = 'left')
+df.dropna(inplace = True)
+
+param_nta = 2# uniform(0., 8)
+param_asy = -7.5  # uniform(-4, 0)
+param_gdp = 10.53  # uniform(0, 8)
+height = -0.3  # uniform(0, 1)
+shape = 0.58  # uniform(0, 2)
+shift = 2
+constant = -0.05
+
+random.seed(1234)
+
+results_list = []
+extensive_results_list = []
+for i in tqdm(range(500)):
+    param_nta = uniform(0.5,3)
+    param_asy = uniform(-10,-5)
+    param_gdp = uniform(7,12)
+    height = uniform(-0.5,1)
+    shape = uniform(-0.5,1)
+    constant = uniform(-2,2)
+    shift = uniform(-2,2)
+
+    rem_per_period = check_initial_guess_with_disasters(height, shape, shift, fixed_probability=False, plot = False)
+    dict_params = {"nta": param_nta,
+                   "asy": param_asy,
+                   "stay": param_stay,
+                   "gdp": param_gdp,
+                   "height": height,
+                   "shape": shape,
+                   "shift" : shift,
+                   "constant": constant}
+
+    for col in dict_params.keys():
+        rem_per_period[col] = dict_params[col]
+    extensive_results_list.append(rem_per_period)
+
+all_results = pd.concat(extensive_results_list)
+all_results.to_pickle('all_results_0307.pkl')
+
+# db = all_results[['nta', 'asy', 'stay', 'gdp', 'height', 'shape','constant', 'error_squared']].groupby(
+#     ['nta', 'asy', 'stay', 'gdp', 'height', 'shape','constant']
+# ).sum().reset_index().sort_values('error_squared')
+#
+# db.to_excel("C://Users//Andrea Vismara//Downloads//simulations_errors_2506.xlsx", index = False)
+######
+# Manual search?
+##
+param_nta = 1.815131497405294
+param_asy = -7.098063764006957
+param_gdp = 9.90727371532861
+height = -0.04539165647009096
+shape = 0.257441199892752
+constant = 0.13281665817199664
+shift = 0.09119031690093526
+
+rem_per_period = check_initial_guess_with_disasters(height, shape, shift, fixed_probability=False, plot=True)
+
+
+##########
+
 
 # 1. Compute difference metrics
 rem_comp['diff_abs'] = rem_comp['sim_remittances_with'] - rem_comp['sim_remittances_no']
@@ -521,7 +608,7 @@ plt.legend()
 plt.show(block = True)
 
 # 4. Time-series comparison for one country‐pair
-origin, destination = 'Guatemala', 'USA'  # replace with any pair in your data
+origin, destination = 'Philippines', 'Italy'  # replace with any pair in your data
 pair_df = rem_comp[(rem_comp['origin'] == origin) & (rem_comp['destination'] == destination)].sort_values('date')
 
 plt.figure()

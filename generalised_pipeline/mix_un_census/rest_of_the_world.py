@@ -163,5 +163,9 @@ plt.show(block = True)
 fig1 = px.scatter(df_group, x = "n_people_un", y = "n_people_mine", color = 'destination', hover_data=["origin", "destination", "sex", "year"])
 fig1.show()
 ################
+# check mex-us
+mex = df_group[df_group.origin == 'Mexico'][['date', 'n_people_un']].groupby('date').sum().reset_index()
 
-df_all.to_pickle("C:\\Data\\migration\\bilateral_stocks\\world\\processed_row_hosts_3obs.pkl")
+
+# df_all.to_pickle("C:\\Data\\migration\\bilateral_stocks\\world\\processed_row_hosts_3obs.pkl")
+df_all.to_pickle("C:\\Data\\migration\\bilateral_stocks\\world\\processed_row_hosts_3obs_only_us.pkl")

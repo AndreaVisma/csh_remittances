@@ -62,6 +62,7 @@ def load_data_and_param(fixed_vars):
 
     df_ag_long["close_country"] = 0
     df_ag_long.loc[df_ag_long.country.isin(italy_close_countries), "close_country"] = 1
+    df_ag_long['albania'] = np.where(df_ag_long.country == 'Albania', 1, 0)
 
     ## load remittances
     df = pd.read_parquet("C:\\Data\\my_datasets\\italy\\simulation_data.parquet")
@@ -74,10 +75,6 @@ def load_data_and_param(fixed_vars):
     df_rem_group['pct_sending'] = df_rem_group['exp_pop'] / df_rem_group['population']
     df_rem_group['year'] = df_rem_group["date"].dt.year
 
-    # country_avg = df_rem_group[['country', 'pct_sending']].groupby('country').mean()
-    # country_avg['pct_sending'].hist(bins = 50)
-    # plt.show(block=True)
-
     df_year_gdp = df_rem_group[['country', 'year', "gdp_per_capita", "delta_gdp"]].groupby(['country', 'year']).mean().reset_index()
     df_ag_long = df_ag_long.merge(df_year_gdp, on = ['country', 'year'], how = 'left')
 
@@ -86,13 +83,16 @@ def load_data_and_param(fixed_vars):
     gdp_group = df_ag_long[['country', 'year', 'delta_gdp_norm']].groupby(['country', 'year']).mean().reset_index()
     gdp_group['gdp_eff'] = 1 / (1 + np.exp(-(gdp_group['delta_gdp_norm'] * param_gdp)))
 
-    # fig = px.bar(gdp_group[gdp_group.year == 2015], x = 'country', y = 'delta_gdp_norm')
-    # fig.show()
-
-    # fig = px.line(gdp_group, x = 'year', y = 'gdp_eff', color = 'country')
-    # fig.show()
-
     #group nta
     nta_group = df_ag_long[['country', 'year', 'nta']].groupby(['country', 'year']).mean().reset_index()
 
-    return params, df_ag_long, df_rem_group, df_stay_group, df_prob_group, gdp_group, nta_group
+    return params, df_ag_long, df_rem_group, df_stay_group, df_prob_group, gdp_group, nta_group, df
+
+def compute_disasters_theta(df, dict_dis_par):
+    df_dis = df[~df[["date", "country"]].duplicated()][["date", "country"] + [x for x in df.columns[9:]]]
+    df_dis.rename(columns = {'eq' : 'eq_0', 'st' : 'st_0', 'fl' : 'fl_0', 'dr' : 'dr_0', 'tot' : 'tot_0'}, inplace = True)
+    for disaster in ['eq', 'dr', 'fl', 'st', 'tot']:
+        params = dict_dis_par[disaster]
+        impact =  sum([4 * params[int(x)] * df_dis[f"{disaster}_{int(x)}"] for x in np.linspace(0, 12, 13)])
+        df_dis[f"{disaster}_score"] = impact
+    return df_dis

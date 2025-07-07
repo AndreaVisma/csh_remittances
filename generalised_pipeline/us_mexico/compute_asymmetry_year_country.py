@@ -35,7 +35,8 @@ for country in tqdm(df.origin.unique()):
 
 df_month['n_people'] = df_month['n_people'].astype(int)
 df_month['mean_age'] = df_month['age_group'].apply(lambda x: np.mean([int(y) for y in re.findall(r'\d+', x)]))
-
+df_month['destination'] = "USA"
+df_month.to_pickle("C:\\Data\\migration\\bilateral_stocks\\us\\processed_usa.pkl")
 
 countries, age_factors, sex_factors, periods = [], [], [], []
 

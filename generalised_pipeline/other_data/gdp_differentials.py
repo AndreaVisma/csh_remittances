@@ -29,4 +29,10 @@ df_pairs = df_pairs[df_pairs.destination != df_pairs.origin]
 df_pairs['date'] = pd.to_datetime(df_pairs['year'], format="%Y") + MonthEnd(0)
 df_pairs.drop(columns = ["gdp_or", "gdp_dest", "year"], inplace = True)
 
+# df_ag_long["delta_gdp_norm"] = df_ag_long.delta_gdp / abs(df_ag_long.delta_gdp.min())
+def min_max_normalize(series):
+    return series / abs(series.min())
+
+df_pairs['gdp_diff_norm'] = df_pairs.groupby('destination')['gdp_diff'].transform(min_max_normalize)
+
 df_pairs.to_pickle("c:\\data\\economic\\gdp\\annual_gdp_deltas.pkl")

@@ -147,10 +147,10 @@ def simulate_populations(df_dem):
 
     return agents_df
 
-agents_df = simulate_populations(df_dem)
+agents_df = simulate_populations(df_dem.year.unique())
 
 ### add family probability
-for year in tqdm(years):
+for year in tqdm(df_dem.year.unique()):
     for country in df_dem.country.unique():
         young_count = len(agents_df[(agents_df.country == country) & (agents_df[f"{year}_age"] < 25)])
         parenting_count = len(agents_df[(agents_df.country == country) & (25 < agents_df[f"{year}_age"]) & (agents_df[f"{year}_age"] < 45)])
@@ -162,27 +162,47 @@ for year in tqdm(years):
 
         agents_df.loc[(agents_df["country"] == country), f"{year}_fam_prob"] = combined_factor
 
-# ## trial
-# countries = []
-# age_factors = []
-# sex_factors = []
-# factors = []
-# for country in tqdm(df_dem.country.unique()):
-#     young_count = len(agents_df[(agents_df.country == country) & (agents_df[f"{year}_age"] < 25)])
-#     parenting_count = len(agents_df[(agents_df.country == country) & (25 < agents_df[f"{year}_age"]) & (agents_df[f"{year}_age"] < 50)])
-#     male_count = len(agents_df[(agents_df.country == country) & (agents_df["sex"] == 'male')])
-#     female_count = len(agents_df[(agents_df.country == country) & (agents_df["sex"] == 'female')])
-#     age_factor = max(0.1, 1 - abs(1 - (young_count / parenting_count)))
-#     sex_factor = min(male_count, female_count) / max(male_count, female_count)
-#     combined_factor = age_factor * sex_factor
-#
-#     countries.append(country)
-#     factors.append(combined_factor)
-#     age_factors.append(age_factor)
-#     sex_factors.append(sex_factor)
-#
-# df_factors = pd.DataFrame({'country' : countries, 'comb_f' : factors, 'age_f' : age_factors, 'sex_f' : sex_factors})
-# df_factors.sort_values('comb_f', inplace = True)
-
-
 agents_df.to_pickle("c:\\data\\population\\italy\\simulated_migrants_populations_2008_2022.pkl")
+
+##### asymmetry statistics
+agents_df = pd.read_pickle("c:\\data\\population\\italy\\simulated_migrants_populations_2008_2022.pkl")
+
+countries = []
+age_factors = []
+sex_factors = []
+factors = []
+year = 2020
+for country in tqdm(df_dem.country.unique()):
+    young_count = len(agents_df[(agents_df.country == country) & (agents_df[f"{year}_age"] < 25)])
+    parenting_count = len(agents_df[(agents_df.country == country) & (25 < agents_df[f"{year}_age"]) & (agents_df[f"{year}_age"] < 50)])
+    male_count = len(agents_df[(agents_df.country == country) & (agents_df["sex"] == 'male')])
+    female_count = len(agents_df[(agents_df.country == country) & (agents_df["sex"] == 'female')])
+    # age_factor = max(0.1, 1 - abs(1 - (young_count / parenting_count)))
+    age_factor = max(0, (1 - (parenting_count / (3 *young_count))))
+    sex_factor = min(male_count, female_count) / (0.5 * (male_count + female_count))
+    combined_factor = age_factor * sex_factor
+
+    countries.append(country)
+    factors.append(combined_factor)
+    age_factors.append(age_factor)
+    sex_factors.append(sex_factor)
+
+df_factors = pd.DataFrame({'country' : countries, 'comb_f' : factors, 'age_f' : age_factors, 'sex_f' : sex_factors})
+
+df_factors.sort_values('age_f', inplace = True)
+print("Age asymmetry top 3:")
+print(df_factors.head(3))
+print("Age asymmetry bottom 3:")
+print(df_factors.tail(3))
+
+df_factors.sort_values('sex_f', inplace = True)
+print("Sex asymmetry top 3:")
+print(df_factors.head(3))
+print("Sex asymmetry bottom 5:")
+print(df_factors.tail(3))
+
+df_factors.sort_values('comb_f', inplace = True)
+print("Combined asymmetry top 3:")
+print(df_factors.head(3))
+print("combined asymmetry bottom 3:")
+print(df_factors.tail(3))

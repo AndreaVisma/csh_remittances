@@ -58,7 +58,7 @@ def simulate_one_country_no_disasters(country, dem_params, df_rem_group, df_ag_l
         plot_remittances_senders(res)
     return res
 
-def simulate_one_country_with_disasters(df_dis, country, plot, reprocess_dis = False, disable_progress = False):
+def simulate_one_country_with_disasters(df_dis, df, country, plot, reprocess_dis = False, disable_progress = False):
 
     if reprocess_dis:
         df_dis = compute_disasters_theta(df, dict_dis_par)
@@ -126,7 +126,12 @@ def simulate_all_countries_deterministic_with_dis(dem_params, df_rem_group, df_a
         group: disaster_vector[i * 13: (i + 1) * 13]
         for i, group in enumerate(['eq', 'dr', 'fl', 'st', 'tot'])
     }
-    df_dis = compute_disasters_theta(df, dict_dis_par)
+    df_dis = df[~df[["date", "country"]].duplicated()][["date", "country"] + [x for x in df.columns[9:]]]
+    df_dis.rename(columns={'eq': 'eq_0', 'st': 'st_0', 'fl': 'fl_0', 'dr': 'dr_0', 'tot': 'tot_0'}, inplace=True)
+    for disaster in ['eq', 'dr', 'fl', 'st', 'tot']:
+        params = dict_dis_par[disaster]
+        impact = sum([4 * params[int(x)] * df_dis[f"{disaster}_{int(x)}"] for x in np.linspace(0, 12, 13)])
+        df_dis[f"{disaster}_score"] = impact
     df_dis['year'] = pd.to_datetime(df_dis.date).dt.year
 
     df_ag_long['theta'] = (
@@ -151,6 +156,21 @@ def simulate_all_countries_deterministic_with_dis(dem_params, df_rem_group, df_a
     res = res.merge(df_ag_group, on=['country', 'year'])
 
     return res
+
+def simulate_all_countries(df_dis, df, dem_params, df_rem_group, df_ag_long, disasters = False):
+    df_res = pd.DataFrame([])
+    if disasters:
+        for country in tqdm(df_dis.country.unique()):
+            res = simulate_one_country_with_disasters(df_dis, df, country, plot = False, reprocess_dis = False, disable_progress = False)
+            res['country'] = country
+            df_res = pd.concat([df_res, res])
+    else:
+        for country in tqdm(df_dis.country.unique()):
+            res = simulate_one_country_no_disasters(country, dem_params = dem_params, df_rem_group = df_rem_group,
+                                                            df_ag_long = df_ag_long, plot=False, disable_progress=True)
+            res['country'] = country
+            df_res = pd.concat([df_res, res])
+    return df_res
 
 def plot_everything_about_results(df, pred = False):
     plot_all_results_log(df)

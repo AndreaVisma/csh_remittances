@@ -121,7 +121,7 @@ def compare_population_pyramids(df, citizenship1, citizenship2, year):
     pyramid2 = prepare_pyramid_data(df, citizenship2, year)
 
     # Create two subplots side by side
-    fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(14, 8), sharey=True)
+    fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(12, 5.5), sharey=True)
 
     plot_population_pyramid(axes[0], pyramid1, f"{citizenship1} - {year}")
     plot_population_pyramid(axes[1], pyramid2, f"{citizenship2} - {year}")
@@ -136,6 +136,6 @@ citizenship2 = 'Philippines'
 year = 2015
 
 # Display the comparison plot.
-compare_population_pyramids(df, 'Ecuador', 'Bosnia', 2015)
+compare_population_pyramids(df, 'South Korea', 'Somalia', 2020)
 
 
