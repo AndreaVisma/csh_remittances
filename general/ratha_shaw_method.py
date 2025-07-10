@@ -55,7 +55,7 @@ df_rem['year'] = df_rem.date.dt.year
 df_wb = df_rem.merge(df_gdp_or, on = ['origin', 'year'], how = 'left')
 df_wb = df_wb.merge(df_gdp_dest, on = ['destination', 'year'], how = 'left')
 
-beta = 0.7
+beta = 0.75
 df_wb['r_factor'] = 0
 df_wb.loc[df_wb.gdp_dest < df_wb.gdp_or, 'r_factor'] = df_wb.loc[df_wb.gdp_dest < df_wb.gdp_or, 'gdp_or'] / 12
 df_wb.loc[df_wb.gdp_dest >= df_wb.gdp_or, 'r_factor'] = (df_wb.loc[df_wb.gdp_dest >= df_wb.gdp_or, 'gdp_or'] +

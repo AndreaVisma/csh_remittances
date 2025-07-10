@@ -1,4 +1,5 @@
 
+
 import pandas as pd
 import numpy as np
 import re
@@ -11,7 +12,6 @@ import plotly.graph_objects as go
 import plotly.express as px
 import plotly.io as pio
 pio.renderers.default = "browser"
-import seaborn as sns
 from random import sample, uniform
 import random
 from pandas.tseries.offsets import MonthEnd
@@ -22,27 +22,34 @@ from italy.simulation.func.goodness_of_fit import (plot_remittances_senders, plo
                                                    plot_correlation_senders_remittances, plot_correlation_remittances)
 from utils import zero_values_before_first_positive_and_after_first_negative
 
+param_stay = 0
 
 ## Diaspora numbers
 diasporas_file = "C:\\Data\\migration\\bilateral_stocks\\interpolated_stocks_and_dem_factors.pkl"
 df = pd.read_pickle(diasporas_file)
+df = df[df.origin != "Libya"]
 df = df.dropna()
+df['year'] = df.date.dt.year
 
 ##nta accounts
 df_nta = pd.read_pickle("C:\\Data\\economic\\nta\\processed_nta.pkl")
 nta_dict = {}
 
+df['mean_age'] = df['mean_age'].astype(int)
+for country in tqdm(df.destination.unique()):
+    for ind, row in df_nta[df_nta.country == country].iterrows():
+        nta_dict[int(row.age)] =row.nta
+    df.loc[df.destination == country, 'nta'] = df.loc[df.destination == country, 'mean_age'].map(nta_dict)
+
 ###gdp to infer remittances amount
 df_gdp = pd.read_excel("c:\\data\\economic\\gdp\\annual_gdp_per_capita_clean.xlsx").rename(columns = {'country' : 'destination'})#.groupby('country').mean().reset_index().rename(columns = {'country' : 'origin'}).drop(columns = 'year')
-
-df['year'] = df.date.dt.year
 df = df.merge(df_gdp, on=['destination', 'year'], how='left')
-df['gdp'] = 0.18 * df['gdp'] / 12
+df['rem_amount'] = 0.18 * df['gdp'] / 12
+
 ## disasters
 emdat = pd.read_pickle("C:\\Data\\my_datasets\\monthly_disasters_with_lags.pkl")
 
 ## load italy & Philippines remittances
-# MEX
 #ITA
 df_rem_ita = pd.read_parquet("C:\\Data\\my_datasets\\italy\\simulation_data.parquet")
 df_rem_ita['destination'] = 'Italy'
@@ -71,51 +78,83 @@ df_rem.sort_values(['origin', 'date'], inplace=True)
 df_rem_group = df_rem.copy()
 df_rem_group['year'] = df_rem_group["date"].dt.year
 
+df = df.merge(df_rem, on =['date', 'origin', 'destination'], how = 'left')
+df.dropna(inplace = True)
+
 ######## functions
-def parse_age_group(age_group_str):
-    """Helper function to parse age_group.
-       This expects strings like "20-24". """
-    lower, upper = map(int, age_group_str.split('-'))
-    return lower, upper
+
 def simulate_row_grouped_deterministic(row, separate_disasters=False):
     # Total number of agents for this row
     n_people = row['n_people']
 
-    # Get lower and upper bounds for the age group.
-    # lower_age, upper_age = parse_age_group(row['age_group'])
-
-    # Simulate individual ages uniformly within the 5-year range
-    # +1 in randint since upper bound is exclusive.
-    # ages = np.random.randint(lower_age, upper_age + 1, size=n_people)
-
-    # Map the simulated ages to nta values using the dictionary.
-    # We assume every age in the simulated sample has an entry in nta_dict.
-    # nta_values = np.array([nta_dict[age] for age in ages])
-
-    # Simulate years of stay for each agent using the beta parameter.
-    # yrs_stay = np.random.exponential(scale=row['beta_estimate'], size=n_people).astype(int)
-
-    # Calculate theta for each individual:
-    # Here, asymmetry and gdp_diff (and even the beta from the growth rate) are constant for all individuals in the row.
-    if separate_disasters:
-        theta = constant + (param_nta * (row['nta'])) \
-                + (param_asy * row['asymmetry']) + (param_gdp * row['gdp_diff_norm']) \
-                + (row['eq_score']) + (row['fl_score']) + (row['st_score']) + (row['dr_score'])
+    if row["nta"] != 0:
+        if separate_disasters:
+            theta = constant + (param_nta * (row['nta'])) \
+                    + (param_asy * row['asymmetry']) + (param_gdp * row['gdp_diff_norm']) \
+                    + (row['eq_score']) + (row['fl_score']) + (row['st_score']) + (row['dr_score'])
+        else:
+            theta = constant + (param_nta * (row['nta'])) \
+                    + (param_asy * row['asymmetry']) + (param_gdp * row['gdp_diff_norm']) \
+                    + (row['tot_score'])
+        # Compute remittance probability using the logistic transformation.
+        p = 1 / (1 + np.exp(-theta))
     else:
-        theta = constant + (param_nta * (row['nta'])) \
-                + (param_asy * row['asymmetry']) + (param_gdp * row['gdp_diff_norm']) \
-                + (row['tot_score'])
+        p = 0
 
-    # Compute remittance probability using the logistic transformation.
-    p = 1 / (1 + np.exp(-theta))
-    # p[nta_values == 0] = 0 # Set probability to zero if nta is zero.
-
-    # Simulate the remittance decision (1: sends remittance, 0: does not).
     total_senders = int(p * n_people)
 
-    # Calculate the total remitted amount for this row.
-    # total_remittance = total_senders * fixed_remittance * group_size
     return total_senders
+
+################### run functions
+def get_df_countries(df):
+    ita_origin_countries = (df[df.destination == "Italy"]['origin'].unique().tolist())
+    try:
+        ita_origin_countries.remove("Cote d'Ivoire")
+    except:
+        pass
+    ita_countries_high_remittances = df_rem_group[(df_rem_group.remittances > 1_000_000) & (df_rem_group.destination == "Italy")].origin.unique().tolist()
+    ita_all_countries = list(set(ita_origin_countries).intersection(set(ita_countries_high_remittances)))
+
+    phil_dest_countries = (df[df.origin == "Philippines"]['destination'].unique().tolist())
+    phil_countries_high_remittances = df_rem_group[(df_rem_group.remittances > 1_000_000) & (df_rem_group.origin == "Philippines")].destination.unique().tolist()
+    phil_all_countries = list(set(phil_dest_countries).intersection(set(phil_countries_high_remittances)))
+
+    pak_dest_countries = (df[df.origin == "Pakistan"]['destination'].unique().tolist())
+    pak_countries_high_remittances = df_rem_group[(df_rem_group.remittances > 1_000_000) & (df_rem_group.origin == "Pakistan")].destination.unique().tolist()
+    pak_all_countries = list(set(pak_dest_countries).intersection(set(pak_countries_high_remittances)))
+
+    nic_dest_countries = (df[df.origin == "Nicaragua"]['destination'].unique().tolist())
+    nic_countries_high_remittances = df_rem_group[(df_rem_group.remittances > 1_000_000) & (df_rem_group.origin == "Nicaragua")].destination.unique().tolist()
+    nic_all_countries = list(set(nic_dest_countries).intersection(set(nic_countries_high_remittances)))
+
+    countries_ita = ita_all_countries
+    countries_phil = phil_all_countries
+    countries_pak = pak_all_countries
+    countries_nic = nic_all_countries
+
+    # df country
+    df_country_ita = df.query(f"""`origin` in {countries_ita} and `destination` == 'Italy'""")
+    df_country_phil = df.query(f"""`origin` == 'Philippines' and `destination` in {countries_phil}""")
+    df_country_pak = df.query(f"""`origin` == 'Pakistan' and `destination` in {countries_pak}""")
+    df_country_mex = df.query(f"""`origin` == 'Mexico' and `destination` == 'USA'""")
+    df_country_nic = df.query(f"""`origin` == 'Nicaragua' and `destination` in {countries_nic}""")
+    df_country_gua = df.query(f"""`origin` == 'Guatemala' and `destination` == 'USA'""")
+
+    df_country_ita = df_country_ita[[x for x in df.columns if x != 'sex']].groupby(
+        ['date', 'year', 'origin', 'age_group', 'mean_age', 'destination', 'gdp', 'rem_amount', 'nta']).mean().reset_index()
+    df_country_phil = df_country_phil[[x for x in df.columns if x != 'sex']].groupby(
+        ['date', 'year','origin', 'age_group', 'mean_age', 'destination', 'gdp', 'rem_amount', 'nta']).mean().reset_index()
+    df_country_pak = df_country_pak[[x for x in df.columns if x != 'sex']].groupby(
+        ['date', 'year','origin', 'age_group', 'mean_age', 'destination', 'gdp', 'rem_amount', 'nta']).mean().reset_index()
+    df_country_nic = df_country_nic[[x for x in df.columns if x != 'sex']].groupby(
+        ['date', 'year','origin', 'age_group', 'mean_age', 'destination', 'gdp', 'rem_amount', 'nta']).mean().reset_index()
+    df_country_mex = df_country_mex[[x for x in df.columns if x != 'sex']].groupby(
+        ['date', 'year','origin', 'age_group', 'mean_age', 'destination', 'gdp', 'rem_amount', 'nta']).mean().reset_index()
+    df_country_gua = df_country_gua[[x for x in df.columns if x != 'sex']].groupby(
+        ['date', 'year','origin', 'age_group', 'mean_age', 'destination', 'gdp', 'rem_amount', 'nta']).mean().reset_index()
+
+    df_countries = pd.concat([df_country_ita, df_country_mex, df_country_gua, df_country_nic, df_country_pak, df_country_phil])
+    return df_countries
 
 def plot_country_mean(df, two_countries = False):
     if two_countries:
@@ -176,42 +215,61 @@ def plot_country_mean(df, two_countries = False):
     fig.show()
     goodness_of_fit_results(df_mean)
 
-def calculate_tot_score(emdat_ita, height, shape, shift, months = 12):
+def calculate_tot_score(emdat_ita, height, shape, shift):
     global dict_scores
-    dict_scores = dict(zip([x for x in range(months)],
+    dict_scores = dict(zip([x for x in range(12)],
                            zero_values_before_first_positive_and_after_first_negative(
-                               [height + shape * np.sin((np.pi / 6) * (x+shift)) for x in range(1, months + 1)])))
-    for x in range(months):
+                               [height + shape * np.sin((np.pi / 6) * (x+shift)) for x in range(1, 13)])))
+    for x in range(12):
         emdat_ita[f"tot_{x}"] = emdat_ita[[f"eq_{x}",f"dr_{x}",f"fl_{x}",f"st_{x}"]].sum(axis =1) * dict_scores[x]
     emdat_ita["tot_score"] = emdat_ita[[x for x in emdat_ita.columns if "tot" in x]].sum(axis =1)
     return emdat_ita[['date', 'origin', 'tot_score']]
 
-def individual_flow(origin, dest, height, shape, shift,fixed_probability = False, plot = False, disasters = True):
+def check_params_combo(df_countries, height, shape, shift, rem_pct, plot = True):
 
-    global nta_dict
-    df_country_mex = df.query(f"""`origin` == '{origin}' and `destination` == '{dest}'""")
+    emdat_ita = emdat[emdat.origin.isin(df_countries.origin.unique())].copy()
+    emdat_ita = calculate_tot_score(emdat_ita, height, shape, shift)
+    try:
+        df_countries.drop(columns = 'tot_score', inplace = True)
+    except:
+        pass
+    df_countries = df_countries.merge(emdat_ita, on=['origin', 'date'], how='left')
+    df_countries['rem_amount'] = rem_pct * df_countries['gdp'] / 12
 
-    df_country_mex = df_country_mex[[x for x in df.columns if x != 'sex']].groupby(
-        ['date', 'origin', 'age_group', 'mean_age', 'destination', 'gdp']).mean().reset_index()
+    df_countries['sim_senders'] = df_countries.apply(simulate_row_grouped_deterministic, axis=1)
+    df_countries['sim_remittances'] = df_countries['sim_senders'] * df_countries['rem_amount']
 
-    df_nta_mex = df_nta.query(f"""`country` == '{dest}'""")[['age', 'nta']].fillna(0)
-
-    if disasters:
-        emdat_mex = emdat[emdat.origin == origin].copy()
-        emdat_mex = calculate_tot_score(emdat_mex, height, shape, shift)
-        df_country_mex = df_country_mex.merge(emdat_mex, on=['origin', 'date'], how='left')
-    else:
-        df_country_mex['tot_score'] = 0
-
-    for ind, row in df_nta_mex.iterrows():
-        nta_dict[int(row.age)] = round(row.nta, 2)
-    df_country_mex['sim_senders'] = df_country_mex.apply(simulate_row_grouped_deterministic, axis=1)
-    df_country_mex['sim_remittances'] = df_country_mex['sim_senders'] * df_country_mex['gdp']
-
-    remittance_per_period = df_country_mex.groupby(['date', 'origin', 'destination'])[['sim_remittances', 'sim_senders']].sum().reset_index()
+    remittance_per_period = df_countries.groupby(['date', 'origin', 'destination'])[['sim_remittances', 'sim_senders']].sum().reset_index()
     remittance_per_period = remittance_per_period.merge(df_rem_group, on=['date', 'origin', 'destination'], how="left")
-    remittance_per_period['error_squared'] = (remittance_per_period['remittances'] -
-                                              remittance_per_period['sim_remittances']) ** 2
+
+    if plot:
+        goodness_of_fit_results(remittance_per_period)
+
+        plot_country_mean(remittance_per_period, two_countries=True)
+
+    return remittance_per_period
+
+def individual_flow(df_countries, origin, dest, height, shape, shift, rem_pct, plot = True, disasters = True):
+
+    emdat_ita = emdat[emdat.origin.isin(df_countries.origin.unique())].copy()
+    emdat_ita = calculate_tot_score(emdat_ita, height, shape, shift)
+    try:
+        df_countries.drop(columns='tot_score', inplace=True)
+    except:
+        pass
+    df_country = df_countries[(df_countries.origin == origin) & (df_countries.destination == dest)].copy()
+    if disasters:
+        df_country = df_country.merge(emdat_ita, on=['origin', 'date'], how='left')
+    else:
+        df_country['tot_score'] = 0
+    df_country['rem_amount'] = rem_pct * df_country['gdp'] / 12
+
+    df_country['sim_senders'] = df_country.apply(simulate_row_grouped_deterministic, axis=1)
+    df_country['sim_remittances'] = df_country['sim_senders'] * df_country['rem_amount']
+
+    remittance_per_period = df_country.groupby(['date', 'origin', 'destination'])[
+        ['sim_remittances', 'sim_senders']].sum().reset_index()
+    remittance_per_period = remittance_per_period.merge(df_rem_group, on=['date', 'origin', 'destination'], how="left")
     if plot:
         to_plot = remittance_per_period[['date', 'sim_remittances', 'remittances']].copy()
         to_plot.set_index('date', inplace = True)
@@ -226,10 +284,11 @@ def individual_flow(origin, dest, height, shape, shift,fixed_probability = False
 
 ########
 def plot_comparison(origin, dest):
-    rem_per_period_with = individual_flow(origin, dest, height, shape, shift,
-                                          fixed_probability=False, plot=False, disasters=True)
-    rem_per_period_without = individual_flow(origin, dest, height, shape, shift,
-                                             fixed_probability=False, plot=False, disasters=False)
+    rem_per_period_with = individual_flow(df_countries, origin, dest,
+                            height, shape, shift, rem_pct, plot = False, disasters = True)
+
+    rem_per_period_without = individual_flow(df_countries, origin, dest,
+                                height, shape, shift, rem_pct, plot = False, disasters = False)
 
     to_plot = rem_per_period_with[['date', 'remittances', 'sim_remittances']].merge(
         rem_per_period_without[['date', 'sim_remittances']],
@@ -243,13 +302,13 @@ def plot_comparison(origin, dest):
     print(f"Extra remittances: {to_plot['difference'].sum() / 1e9} bn euros")
     print(f"Pct increase: {100 * to_plot['difference'].sum() / to_plot['sim_remittances_without'].sum()}%")
 
-# param_nta = 1.35
-# param_asy = -7.09
-# param_gdp = 9.9
-# height = 0.045
-# shape = 0.25
-# constant = 0.13
-# shift = 2
 
-origin, dest = "Pakistan", "Italy"
+#######
+df_countries = get_df_countries(df)
+params = [2.66093400319252, -9.771767189034518, 8.310441847102053,
+                                    0.338599981797477, 0.3901969522813624,-0.750105008323315,
+                                    0.6917237435288245, 0.1942257641159886]
+param_nta, param_asy, param_gdp, height, shape, shift, constant, rem_pct = params
+
+origin, dest = "Mexico", "Italy"
 plot_comparison(origin, dest)
