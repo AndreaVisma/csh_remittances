@@ -25,14 +25,14 @@ df = pd.read_pickle(diasporas_file)
 df = df[df.n_people > 0]
 
 ##exponential betas for years of stay
-df_betas = pd.read_pickle("C:\\Data\\migration\\simulations\\exponential_betas.pkl")
+# df_betas = pd.read_pickle("C:\\Data\\migration\\simulations\\exponential_betas.pkl")
 
 ## family asymmetry
 asymmetry_file = "C:\\Data\\migration\\bilateral_stocks\\pyramid_asymmetry_beginning_of_the_year.pkl"
 asy_df = pd.read_pickle(asymmetry_file)
 
 ## diaspora growth rates
-growth_rates = pd.read_pickle("C://data//migration//stock_pct_change.pkl")
+# growth_rates = pd.read_pickle("C://data//migration//stock_pct_change.pkl")
 
 ## gdp differential
 df_gdp = (pd.read_pickle("c:\\data\\economic\\gdp\\annual_gdp_deltas.pkl"))
@@ -45,25 +45,17 @@ nta_dict = {}
 ## disasters
 emdat = pd.read_pickle("C:\\Data\\my_datasets\\monthly_disasters_with_lags.pkl")
 
-
+df = df[df.destination != "Cote d'Ivoire"]
 list_dfs = []
-for country in tqdm(df.destination.unique()[188:]):
+for country in tqdm(df.destination.unique()):
     countries_or = (df[df.destination == country]['origin'].unique().tolist())
     df_country_ita = df.query(f"""`origin` in {countries_or} and `destination` == '{country}'""")
-    df_country_ita = df_country_ita[[x for x in df.columns if x != 'sex']].groupby(
-        ['date', 'origin', 'age_group', 'mean_age', 'destination']).mean().reset_index()
+    df_country_ita = df_country_ita[['date', 'origin', 'age_group', 'mean_age', 'destination', 'n_people']].groupby(
+        ['date', 'origin', 'age_group', 'mean_age', 'destination']).sum().reset_index()
     # asy
     asy_df_ita = asy_df.query(f"""`destination` == '{country}'""")
     df_country_ita = df_country_ita.sort_values(['origin', 'date']).sort_values(['origin', 'date']).merge(asy_df_ita[["date", "asymmetry", "origin"]],
                                   on=["date", "origin"], how='left').ffill()
-
-    growth_rates_ita = growth_rates.query(f"""`destination` == '{country}'""")
-    df_country_ita = df_country_ita.merge(growth_rates_ita[["date", "yrly_growth_rate", "origin"]],
-                                  on=["date", "origin"], how='left')
-    df_country_ita['yrly_growth_rate'] = df_country_ita['yrly_growth_rate'].bfill()
-    df_country_ita['yrly_growth_rate'] = df_country_ita['yrly_growth_rate'].apply(lambda x: round(x, 2))
-
-    df_country_ita = df_country_ita.merge(df_betas, on="yrly_growth_rate", how='left')
 
     ##gdp diff
     df_gdp_ita = df_gdp.query(f"""`destination` == '{country}'""")
