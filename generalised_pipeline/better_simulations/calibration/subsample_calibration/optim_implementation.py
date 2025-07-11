@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 from tqdm import tqdm
 from scipy.optimize import minimize
+from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 import plotly.express as px
@@ -72,15 +73,15 @@ df_rem_group = df_rem.copy()
 df_rem_group['year'] = df_rem_group["date"].dt.year
 
 df = df.merge(df_rem, on =['date', 'origin', 'destination'], how = 'left')
-df.dropna(inplace = True)
-unique_pairs = df[['origin', 'destination']].drop_duplicates()
-sampled_pairs = unique_pairs.sample(frac=0.6, random_state=42)
-df_sampled = df.merge(sampled_pairs, on=['origin', 'destination'], how='inner')
+unique_pairs = df[['date', 'origin', 'destination']].drop_duplicates()
+sampled_pairs = unique_pairs.sample(frac=0.8, random_state=42)
+df_sampled = df.merge(sampled_pairs, on=['date', 'origin', 'destination'], how='inner')
 
 df_saved = df.copy()
-not_sampled_pairs = unique_pairs.merge(sampled_pairs, on=['origin', 'destination'], how='outer', indicator=True)
+not_sampled_pairs = unique_pairs.merge(sampled_pairs, on=['date', 'origin', 'destination'], how='outer', indicator=True)
 not_sampled_pairs = not_sampled_pairs[not_sampled_pairs['_merge'] == 'left_only'].drop(columns=['_merge'])
-df_not_sampled = df_saved.merge(not_sampled_pairs, on=['origin', 'destination'], how='inner')
+df_not_sampled = df_saved.merge(not_sampled_pairs, on=['date', 'origin', 'destination'], how='inner')
+
 
 ######## functions
 
@@ -235,6 +236,7 @@ def check_params_combo(df_countries, height, shape, shift, rem_pct, plot = True)
     except:
         pass
     df_countries = df_countries.merge(emdat_ita, on=['origin', 'date'], how='left')
+    df_countries['tot_score'].fillna(0, inplace = True)
     df_countries['rem_amount'] = rem_pct * df_countries['gdp'] / 12
 
     df_countries['sim_senders'] = df_countries.apply(simulate_row_grouped_deterministic, axis=1)
@@ -267,7 +269,7 @@ t = 0
 
 res = minimize(
     lambda x: error_function(x),
-    x0 =[2.66, -9.77,  8.31, 0.34, 0.39, -0.75, 0.69, 0.18],
+    x0 =[2.66, -9.77,  8.31, 0.34, 0.39, -0.75, 0.69, 0.14],
     bounds= [(0.5,3),(-10,-5),(7,13),(-0.5,1),(-0.5,1),(-2,2),(-2,2), (0.1, 0.2)],
     method="L-BFGS-B",
     options={'disp': True}
@@ -368,9 +370,14 @@ def plot_train_test(df_test):
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     plt.show(block = True)
 
-df_test = return_train_test_result([2.66093400319252, -9.771767189034518, 8.310441847102053,
-                                    0.338599981797477, 0.3901969522813624,-0.750105008323315,
-                                    0.6917237435288245, 0.1942257641159886])
+params = [2.725302695640765, -9.769960496731258, 8.310039749519659,
+            0.1788188275520765, 0.21924650014050806,-0.7500114294211869,
+            0.3856959277016759, 0.1333609093157307]
+
+param_nta, param_asy, param_gdp, height, shape, shift, constant, rem_pct = params
+res = check_params_combo(get_df_countries(df), height, shape, shift, rem_pct, plot=True)
+
+df_test = return_train_test_result(params)
 plot_train_test(df_test)
 
 fig = px.scatter(df_test, x="remittances", y="sim_remittances", trendline="ols", color = 'type')
