@@ -28,8 +28,9 @@ df_pairs.rename(columns = {"country_dest" : "destination", "country_or" : "origi
 df_pairs = df_pairs[df_pairs.destination != df_pairs.origin]
 df_pairs['date'] = pd.to_datetime(df_pairs['year'], format="%Y") + MonthEnd(0)
 df_pairs.drop(columns = ["gdp_or", "gdp_dest", "year"], inplace = True)
+df_pairs = df_pairs[df_pairs.date.dt.year > 2009]
+df_pairs.ffill(inplace=True)
 
-# df_ag_long["delta_gdp_norm"] = df_ag_long.delta_gdp / abs(df_ag_long.delta_gdp.min())
 def min_max_normalize(series):
     return series / abs(series.min())
 
