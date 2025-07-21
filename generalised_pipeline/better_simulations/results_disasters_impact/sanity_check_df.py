@@ -162,6 +162,6 @@ res_new = pd.read_pickle("C:\\git-projects\\csh_remittances\\general\\results_pl
 res = res_old.merge(res_new, on = ["date", "origin", "destination"], how = "outer",
                     suffixes = ("_old", "_new"))
 
-
+rere
 
 
