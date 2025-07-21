@@ -15,13 +15,52 @@ df_wb = pd.read_csv("C:\\Data\\remittances\\wb_remittances.txt")
 df_wb = df_wb[df_wb['year'] > 2009]
 
 ## Diaspora numbers
-diasporas_file = "C:\\Data\\migration\\bilateral_stocks\\interpolated_stocks_and_dem_factors.pkl"
-df = pd.read_pickle(diasporas_file)
+diasporas_file = "C:\\Data\\migration\\bilateral_stocks\\interpolated_stocks_and_dem_factors_1607_2.pkl"
+df_old = pd.read_pickle(diasporas_file)
+
+df_new = pd.read_pickle("C:\\Data\\migration\\bilateral_stocks\\interpolated_stocks_and_dem_factors_splined_NEW_1807.pkl")
+
+#########################
+# check if I have diaspora info for all pairs all years
+
+def check_pair_coverage(df):
+    # Ensure date column is datetime
+    df['date'] = pd.to_datetime(df['date'])
+
+    # Get the full range of periods
+    all_periods = pd.date_range(start=df['date'].min(), end=df['date'].max(), freq='M')
+    all_periods_set = set(all_periods)
+
+    # Identify all unique pairs
+    pairs = df[["date", "origin", "destination"]].groupby(['origin', 'destination'])
+
+    results = []
+
+    for (origin, destination), group in pairs:
+        group_dates = set(pd.to_datetime(group['date']).dt.to_period('M').dt.to_timestamp('M'))
+        missing_dates = sorted(all_periods_set - group_dates)
+        first_seen = min(group_dates)
+        last_seen = max(group_dates)
+
+        results.append({
+            'origin': origin,
+            'destination': destination,
+            'first_seen': first_seen,
+            'last_seen': last_seen,
+            'missing_periods': missing_dates,
+            'is_complete': len(missing_dates) == 0
+        })
+
+    return pd.DataFrame(results)
+
+report = check_pair_coverage(df_old)
+print(report[~report['is_complete']])  # Only incomplete pairs
+#########################
 
 #########
-unique_pairs = df[['origin', 'destination']].drop_duplicates()
+unique_pairs = df_old[['origin', 'destination']].drop_duplicates()
 num_unique_pairs = len(unique_pairs)
-unique_countries = pd.unique(df[['origin', 'destination']].values.ravel())
+unique_countries = pd.unique(df_old[['origin', 'destination']].values.ravel())
 N = len(unique_countries)
 total_possible_pairs = N * (N - 1)
 print(f"Observed unique pairs: {num_unique_pairs}")
@@ -75,25 +114,31 @@ plt.show(block=True)
 
 ##########################
 ##########################
-df = df[df.origin != "Libya"]
+# df = df[df.origin != "Libya"]
 # df = df.dropna()
-df['year'] = df.date.dt.year
+df_old['year'] = df_old.date.dt.year
+df_new['year'] = df_new.date.dt.year
 
 
-df_check = df[['date', 'year', 'origin', 'n_people', 'destination']].groupby(
+df_tot_old = df_old[['date', 'n_people']].groupby(['date']).sum()
+df_tot_old['n_people'] /= 1e6
+df_tot_new = df_new[['date', 'n_people']].groupby(['date']).sum()
+df_tot_new['n_people'] /= 1e6
+
+fig, ax = plt.subplots(figsize=(9, 6))
+plt.plot(df_tot_old, label = 'old dataframe')
+plt.plot(df_tot_new, label = 'new dataframe')
+plt.grid(True)
+plt.ylabel(f"Millions of people")
+plt.title(f"Total international migrants around the world")
+plt.legend()
+plt.show(block=True)
+
+df_check = df_old[['date', 'year', 'origin', 'n_people', 'destination']].groupby(
     ['date', 'year', 'origin','destination']).sum().reset_index()
 df_check_pair_year = df_check[~df_check[['year', 'origin', 'destination']].duplicated()]
 df_mixed_un = df_check_pair_year.merge(df_tot_un_pair, on = ['year', 'origin', 'destination'], how = 'inner', suffixes = ("_mine", "_un"))
 df_mixed_un['double_mine'] = df_mixed_un["n_people_mine"] * 2
-df_tot = df[['date', 'n_people']].groupby(['date']).sum()
-df_tot['n_people'] /= 1e6
-
-fig, ax = plt.subplots(figsize=(9, 6))
-plt.plot(df_tot)
-plt.grid(True)
-plt.ylabel(f"Millions of people")
-plt.title(f"Total international migrants around the world")
-plt.show(block=True)
 
 def plot_migrants_country(origin, destination):
     df_pair = df_check[(df_check.origin == origin) & (df_check.destination == destination)][["date", "n_people"]].set_index("date")
@@ -106,3 +151,17 @@ def plot_migrants_country(origin, destination):
     plt.show(block=True)
 
 plot_migrants_country("Afghanistan", "Austria")
+
+###############################
+# Results
+###############################
+
+res_old = pd.read_pickle("C:\\git-projects\\csh_remittances\\general\\results_plots\\all_flows_simulations_with_disasters.pkl")
+res_new = pd.read_pickle("C:\\git-projects\\csh_remittances\\general\\results_plots\\all_flows_simulations_with_disasters_splined_NEW_1807.pkl")
+
+res = res_old.merge(res_new, on = ["date", "origin", "destination"], how = "outer",
+                    suffixes = ("_old", "_new"))
+
+
+
+
