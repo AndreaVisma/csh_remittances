@@ -15,7 +15,7 @@ df_wb = pd.read_csv("C:\\Data\\remittances\\wb_remittances.txt")
 df_wb = df_wb[df_wb['year'] > 2009]
 
 ## Diaspora numbers
-diasporas_file = "C:\\Data\\migration\\bilateral_stocks\\interpolated_stocks_and_dem_factors_1607_2.pkl"
+diasporas_file = ("C:\\Data\\migration\\bilateral_stocks\\interpolated_stocks_and_dem_factors_NEW_2107.pkl")
 df_old = pd.read_pickle(diasporas_file)
 
 df_new = pd.read_pickle("C:\\Data\\migration\\bilateral_stocks\\interpolated_stocks_and_dem_factors_splined_NEW_1807.pkl")
@@ -118,7 +118,8 @@ plt.show(block=True)
 # df = df.dropna()
 df_old['year'] = df_old.date.dt.year
 df_new['year'] = df_new.date.dt.year
-
+df_comp = df_old.merge(df_new, on = ['date', 'origin', 'age_group', 'mean_age', 'destination'], how = 'outer')
+df_comp_mex = df_comp[(df_comp.origin == "Mexico") & (df_comp.destination == "USA")]
 
 df_tot_old = df_old[['date', 'n_people']].groupby(['date']).sum()
 df_tot_old['n_people'] /= 1e6
@@ -162,6 +163,12 @@ res_new = pd.read_pickle("C:\\git-projects\\csh_remittances\\general\\results_pl
 res = res_old.merge(res_new, on = ["date", "origin", "destination"], how = "outer",
                     suffixes = ("_old", "_new"))
 
-rere
+res_mex = res[(res.origin == "Mexico") & (res.destination == "USA")]
+
+fig, ax = plt.subplots()
+plt.scatter(x = res_mex['sim_remittances_old'], y = res_mex['sim_remittances_new'])
+lims = [0, res_mex['sim_remittances_old'].max()]
+ax.plot(lims, lims, 'k-', alpha=1, zorder=1)
+plt.show(block = True)
 
 

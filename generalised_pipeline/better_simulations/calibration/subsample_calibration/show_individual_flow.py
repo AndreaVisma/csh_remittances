@@ -25,21 +25,11 @@ from utils import zero_values_before_first_positive_and_after_first_negative
 param_stay = 0
 
 ## Diaspora numbers
-diasporas_file = "C:\\Data\\migration\\bilateral_stocks\\interpolated_stocks_and_dem_factors.pkl"
+diasporas_file = "C:\\Data\\migration\\bilateral_stocks\\interpolated_stocks_and_dem_factors_NEW_2107.pkl"
 df = pd.read_pickle(diasporas_file)
 df = df[df.origin != "Libya"]
 df = df.dropna()
 df['year'] = df.date.dt.year
-
-##nta accounts
-df_nta = pd.read_pickle("C:\\Data\\economic\\nta\\processed_nta.pkl")
-nta_dict = {}
-
-df['mean_age'] = df['mean_age'].astype(int)
-for country in tqdm(df.destination.unique()):
-    for ind, row in df_nta[df_nta.country == country].iterrows():
-        nta_dict[int(row.age)] =row.nta
-    df.loc[df.destination == country, 'nta'] = df.loc[df.destination == country, 'mean_age'].map(nta_dict)
 
 ###gdp to infer remittances amount
 df_gdp = pd.read_excel("c:\\data\\economic\\gdp\\annual_gdp_per_capita_clean.xlsx").rename(columns = {'country' : 'destination'})#.groupby('country').mean().reset_index().rename(columns = {'country' : 'origin'}).drop(columns = 'year')
@@ -80,30 +70,6 @@ df_rem_group['year'] = df_rem_group["date"].dt.year
 
 df = df.merge(df_rem, on =['date', 'origin', 'destination'], how = 'left')
 df.dropna(inplace = True)
-
-######## functions
-
-def simulate_row_grouped_deterministic(row, separate_disasters=False):
-    # Total number of agents for this row
-    n_people = row['n_people']
-
-    if row["nta"] != 0:
-        if separate_disasters:
-            theta = constant + (param_nta * (row['nta'])) \
-                    + (param_asy * row['asymmetry']) + (param_gdp * row['gdp_diff_norm']) \
-                    + (row['eq_score']) + (row['fl_score']) + (row['st_score']) + (row['dr_score'])
-        else:
-            theta = constant + (param_nta * (row['nta'])) \
-                    + (param_asy * row['asymmetry']) + (param_gdp * row['gdp_diff_norm']) \
-                    + (row['tot_score'])
-        # Compute remittance probability using the logistic transformation.
-        p = 1 / (1 + np.exp(-theta))
-    else:
-        p = 0
-
-    total_senders = int(p * n_people)
-
-    return total_senders
 
 ################### run functions
 def get_df_countries(df):
@@ -264,7 +230,13 @@ def individual_flow(df_countries, origin, dest, height, shape, shift, rem_pct, p
         df_country['tot_score'] = 0
     df_country['rem_amount'] = rem_pct * df_country['gdp'] / 12
 
-    df_country['sim_senders'] = df_country.apply(simulate_row_grouped_deterministic, axis=1)
+    df_country['theta'] = constant + (param_nta * (df_country['nta'])) \
+                            + (param_asy * df_country['asymmetry']) + (param_gdp * df_country['gdp_diff_norm']) \
+                            + (df_country['tot_score'])
+    df_country.loc[df_country.nta == 0, 'theta'] == 0
+    df_country['probability'] = 1 / (1 + np.exp(-df_country["theta"]))
+    df_country['sim_senders'] = (df_country['probability'] * df_country['n_people']).astype(int)
+    df_country['sim_remittances'] = df_country['sim_senders'] * df_country['rem_amount']
     df_country['sim_remittances'] = df_country['sim_senders'] * df_country['rem_amount']
 
     remittance_per_period = df_country.groupby(['date', 'origin', 'destination'])[
@@ -305,10 +277,8 @@ def plot_comparison(origin, dest):
 
 #######
 df_countries = get_df_countries(df)
-params = [2.66093400319252, -9.771767189034518, 8.310441847102053,
-                                    0.338599981797477, 0.3901969522813624,-0.750105008323315,
-                                    0.6917237435288245, 0.1942257641159886]
+params = [2, -9.466, 7, 0.14, 0.2, 2, -0.84, 0.11]
 param_nta, param_asy, param_gdp, height, shape, shift, constant, rem_pct = params
 
-origin, dest = "Mexico", "Italy"
+origin, dest = "Mexico", "USA"
 plot_comparison(origin, dest)

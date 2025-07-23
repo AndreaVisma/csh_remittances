@@ -19,31 +19,20 @@ from utils import zero_values_before_first_positive_and_after_first_negative
 param_stay = 0
 
 ## Diaspora numbers
-diasporas_file = "C:\\Data\\migration\\bilateral_stocks\\interpolated_stocks_and_dem_factors.pkl"
+diasporas_file = "C:\\Data\\migration\\bilateral_stocks\\interpolated_stocks_and_dem_factors_2207_TRAIN.pkl"
 df = pd.read_pickle(diasporas_file)
-df = df[df.origin != "Libya"]
 df = df.dropna()
 df['year'] = df.date.dt.year
 
-##nta accounts
-df_nta = pd.read_pickle("C:\\Data\\economic\\nta\\processed_nta.pkl")
-nta_dict = {}
-
-df['mean_age'] = df['mean_age'].astype(int)
-for country in tqdm(df.destination.unique()):
-    for ind, row in df_nta[df_nta.country == country].iterrows():
-        nta_dict[int(row.age)] =row.nta
-    df.loc[df.destination == country, 'nta'] = df.loc[df.destination == country, 'mean_age'].map(nta_dict)
-
 ###gdp to infer remittances amount
-df_gdp = pd.read_excel("c:\\data\\economic\\gdp\\annual_gdp_per_capita_clean.xlsx").rename(columns = {'country' : 'destination'})#.groupby('country').mean().reset_index().rename(columns = {'country' : 'origin'}).drop(columns = 'year')
-df = df.merge(df_gdp, on=['destination', 'year'], how='left')
-df['rem_amount'] = 0.18 * df['gdp'] / 12
+df_gdp = pd.read_pickle("c:\\data\\economic\\gdp\\annual_gdp_per_capita_splined.pkl")
+df = df.merge(df_gdp, on=['destination', 'date'], how='left')
+df['rem_amount'] = 0.15 * df.gdp /12
 
 ## disasters
 emdat = pd.read_pickle("C:\\Data\\my_datasets\\monthly_disasters_with_lags.pkl")
 
-## load italy & Philippines remittances
+## load remittances
 #ITA
 df_rem_ita = pd.read_parquet("C:\\Data\\my_datasets\\italy\\simulation_data.parquet")
 df_rem_ita['destination'] = 'Italy'
@@ -82,9 +71,7 @@ not_sampled_pairs = unique_pairs.merge(sampled_pairs, on=['date', 'origin', 'des
 not_sampled_pairs = not_sampled_pairs[not_sampled_pairs['_merge'] == 'left_only'].drop(columns=['_merge'])
 df_not_sampled = df_saved.merge(not_sampled_pairs, on=['date', 'origin', 'destination'], how='inner')
 
-
 ######## functions
-
 def simulate_row_grouped_deterministic(row, separate_disasters=False):
     # Total number of agents for this row
     n_people = row['n_people']
@@ -227,7 +214,7 @@ def calculate_tot_score(emdat_ita, height, shape, shift):
     emdat_ita["tot_score"] = emdat_ita[[x for x in emdat_ita.columns if "tot" in x]].sum(axis =1)
     return emdat_ita[['date', 'origin', 'tot_score']]
 
-def check_params_combo(df_countries, height, shape, shift, rem_pct, plot = True):
+def check_params_combo_faster(df_countries, height, shape, shift, rem_pct, plot = True):
 
     emdat_ita = emdat[emdat.origin.isin(df_countries.origin.unique())].copy()
     emdat_ita = calculate_tot_score(emdat_ita, height, shape, shift)
@@ -239,7 +226,12 @@ def check_params_combo(df_countries, height, shape, shift, rem_pct, plot = True)
     df_countries['tot_score'].fillna(0, inplace = True)
     df_countries['rem_amount'] = rem_pct * df_countries['gdp'] / 12
 
-    df_countries['sim_senders'] = df_countries.apply(simulate_row_grouped_deterministic, axis=1)
+    df_countries['theta'] = constant + (param_nta * (df_countries['nta'])) \
+                    + (param_asy * df_countries['asymmetry']) + (param_gdp * df_countries['gdp_diff_norm']) \
+                    + (df_countries['tot_score'])
+    df_countries.loc[df_countries.nta == 0, 'theta'] == 0
+    df_countries['probability'] = 1 / (1 + np.exp(-df_countries["theta"]))
+    df_countries['sim_senders'] = (df_countries['probability'] * df_countries['n_people']).astype(int)
     df_countries['sim_remittances'] = df_countries['sim_senders'] * df_countries['rem_amount']
 
     remittance_per_period = df_countries.groupby(['date', 'origin', 'destination'])[['sim_remittances', 'sim_senders']].sum().reset_index()
@@ -252,25 +244,45 @@ def check_params_combo(df_countries, height, shape, shift, rem_pct, plot = True)
 
     return remittance_per_period
 
+
+###############3
+# check what's faster
+import time
+
+df_countries = get_df_countries(df_sampled)
+params = [2.725302695640765, -9.769960496731258, 8.310039749519659,
+            0.1788188275520765, 0.21924650014050806,-0.7500114294211869,
+            0.3856959277016759, 0.1333609093157307]
+param_nta, param_asy, param_gdp, height, shape, shift, constant, rem_pct = params
+
+print(f"================================")
+start = time.time()
+results_new = check_params_combo_faster(df_countries, height, shape, shift, rem_pct, plot = False)
+end = time.time()
+print(f"running time new function: {end - start}")
+
+################
 def error_function(params):
     global param_nta, param_asy, param_gdp, height, shape, shift, constant
     param_nta, param_asy, param_gdp, height, shape, shift, constant, rem_pct = params
 
-    res = check_params_combo(df_countries, height, shape, shift, rem_pct, plot=False)
+    res = check_params_combo_faster(df_countries, height, shape, shift, rem_pct, plot=False)
     res['error'] = (res['sim_remittances'] - res['remittances']) / 1e9
     res['error'] = np.square(res['error'])
     return res['error'].sum()
 
 df_countries = get_df_countries(df_sampled)
-# param_nta, param_asy, param_gdp, height, shape, shift, constant
-params = [2.7, -9.31,  11.34, -0.14, -0.29, -1.16, 0.17, 0.18]
-error_old = error_function(params)
-t = 0
+##################################
+params = [2.725302695640765, -9.769960496731258, 8.310039749519659,
+            0.1788188275520765, 0.21924650014050806,-0.7500114294211869,
+            0.3856959277016759, 0.1333609093157307]
+param_nta, param_asy, param_gdp, height, shape, shift, constant, rem_pct = params
+results = check_params_combo_faster(df_countries, height, shape, shift, rem_pct, plot = True)
 
 res = minimize(
     lambda x: error_function(x),
-    x0 =[2.66, -9.77,  8.31, 0.34, 0.39, -0.75, 0.69, 0.14],
-    bounds= [(0.5,3),(-10,-5),(7,13),(-0.5,1),(-0.5,1),(-2,2),(-2,2), (0.1, 0.2)],
+    x0 =params,
+    bounds= [(0.5,3),(-12,-5),(5,13),(-0.5,1),(-0.5,1),(-2,2),(-2,2), (0.1, 0.2)],
     method="L-BFGS-B",
     options={'disp': True}
 )
@@ -295,7 +307,12 @@ def return_train_test_result(params):
     df_countries = df_countries.merge(emdat_ita, on=['origin', 'date'], how='left')
     df_countries['rem_amount'] = rem_pct * df_countries['gdp'] / 12
 
-    df_countries['sim_senders'] = df_countries.apply(simulate_row_grouped_deterministic, axis=1)
+    df_countries['theta'] = constant + (param_nta * (df_countries['nta'])) \
+                            + (param_asy * df_countries['asymmetry']) + (param_gdp * df_countries['gdp_diff_norm']) \
+                            + (df_countries['tot_score'])
+    df_countries.loc[df_countries.nta == 0, 'theta'] == 0
+    df_countries['probability'] = 1 / (1 + np.exp(-df_countries["theta"]))
+    df_countries['sim_senders'] = (df_countries['probability'] * df_countries['n_people']).astype(int)
     df_countries['sim_remittances'] = df_countries['sim_senders'] * df_countries['rem_amount']
 
     remittance_per_period_1 = df_countries.groupby(['date', 'origin', 'destination'])[['sim_remittances', 'sim_senders']].sum().reset_index()
@@ -370,12 +387,10 @@ def plot_train_test(df_test):
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     plt.show(block = True)
 
-params = [2.725302695640765, -9.769960496731258, 8.310039749519659,
-            0.1788188275520765, 0.21924650014050806,-0.7500114294211869,
-            0.3856959277016759, 0.1333609093157307]
-
+params = [x for x in res.x]
+# params = [1.89, -9.466, 7, 0.27, 0.39, -2, -0.84, 0.11]
 param_nta, param_asy, param_gdp, height, shape, shift, constant, rem_pct = params
-res = check_params_combo(get_df_countries(df), height, shape, shift, rem_pct, plot=True)
+res = check_params_combo_faster(get_df_countries(df), height, shape, shift, rem_pct, plot=True)
 
 df_test = return_train_test_result(params)
 plot_train_test(df_test)

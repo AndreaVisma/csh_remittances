@@ -46,7 +46,9 @@ for dest_country in pbar:
 result_gdp = pd.concat(list_df_months)
 result_gdp = result_gdp.sort_values(["destination", "date"])
 result_gdp['date'] = pd.to_datetime(result_gdp['date'])
-result_gdp.to_pickle("c:\\data\\economic\\gdp\\annual_gdp_per_capita_splined.xlsx")
+result_gdp.to_pickle("c:\\data\\economic\\gdp\\annual_gdp_per_capita_splined.pkl")
+
+result_gdp.to_excel("c:\\data\\economic\\gdp\\annual_gdp_per_capita_splined.xlsx", index = False)
 
 dfs = []
 

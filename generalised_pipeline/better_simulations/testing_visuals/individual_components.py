@@ -20,6 +20,10 @@ from italy.simulation.func.goodness_of_fit import (plot_remittances_senders, plo
                                                    plot_correlation_senders_remittances, plot_correlation_remittances)
 from utils import zero_values_before_first_positive_and_after_first_negative
 
+params = [2.725302695640765, -9.769960496731258, 8.310039749519659,
+            0.1788188275520765, 0.21924650014050806,-0.7500114294211869,
+            0.3856959277016759, 0.1333609093157307]
+param_nta, param_asy, param_gdp, height, shape, shift, constant, rem_pct = params
 
 ## Diaspora numbers
 diasporas_file = "C:\\Data\\migration\\bilateral_stocks\\interpolated_stocks_and_dem_factors.pkl"
@@ -87,16 +91,16 @@ def simulate_row_grouped_deterministic(row, separate_disasters=False, group_size
     nta_values = np.array([nta_dict[age] for age in ages])
 
     # Simulate years of stay for each agent using the beta parameter.
-    yrs_stay = np.random.exponential(scale=row['beta_estimate'], size=n_people).astype(int)
+    # yrs_stay = np.random.exponential(scale=row['beta_estimate'], size=n_people).astype(int)
 
     # Calculate theta for each individual:
     # Here, asymmetry and gdp_diff (and even the beta from the growth rate) are constant for all individuals in the row.
     if separate_disasters:
-        theta = (param_nta * (nta_values - 2)) + (param_stay * yrs_stay) \
+        theta = (param_nta * (nta_values))  \
                 + (param_asy * row['asymmetry']) + (param_gdp * row['gdp_diff_norm']) \
                 + (row['eq_score']) + (row['fl_score']) + (row['st_score']) + (row['dr_score'])
     else:
-        theta = (param_nta * (nta_values - 2)) + (param_stay * yrs_stay) \
+        theta = (param_nta * (nta_values))  \
                 + (param_asy * row['asymmetry']) + (param_gdp * row['gdp_diff_norm']) \
                 + (row['tot_score'])
 
@@ -133,12 +137,6 @@ def calculate_tot_score(emdat_ita, height, shape):
 
 
 ################### run functions
-param_nta = 4
-param_stay = 0
-param_asy = -1
-param_gdp = 10
-height = 0.2
-shape = 0.5
 
 def plot_individual_components(origin, destination):
 
@@ -183,7 +181,7 @@ def plot_individual_components(origin, destination):
     ax.legend(loc='best')
     plt.show(block=True)
 
-plot_individual_components(origin = "Mexico", destination = "USA")
+plot_individual_components(origin = "Egypt", destination = "Italy")
 
 def plot_two_countries(origin, destination):
 
@@ -223,4 +221,4 @@ def plot_two_countries(origin, destination):
     ax.legend(loc='best')
     plt.show(block=True)
 
-plot_two_countries(origin="Mexico", destination="USA")
+plot_two_countries(origin="Bangladesh", destination="Japan")
