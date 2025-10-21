@@ -33,18 +33,13 @@ df_gdp = pd.read_pickle("c:\\data\\economic\\gdp\\annual_gdp_per_capita_splined.
 df = df.merge(df_gdp, on=['destination', 'date'], how='left')
 
 ## disasters
-emdat = pd.read_pickle("C:\\Data\\my_datasets\\monthly_disasters_with_lags.pkl")
+emdat = pd.read_pickle("C:\\Data\\my_datasets\\monthly_disasters_with_lags_NEW.pkl")
 
 ####parameters
 
-params = [2.725302695640765, -9.769960496731258, 8.310039749519659,
+params = [2.323125219174453, -8.90268722949454, 9.158294373208719,
             0.1788188275520765, 0.21924650014050806,-0.7500114294211869,
-            0.3856959277016759, 0.1333609093157307]
-# params = [1.89, -9.466, 7, 0.27, 0.39, -2, -0.84, 0.11]
-# params = [1.8979563003878646, -7.711374890168264,9.728430227336691,
-#           0.19573951150137103,0.20461772706094322,-1.3942682139559333,
-#           -1.6491738989620697, 0.1]
-
+            -0.04579122940366171, 0.13737550869522205]
 param_nta, param_asy, param_gdp, height, shape, shift, constant, rem_pct = params
 
 ######## functions
@@ -57,6 +52,20 @@ def calculate_tot_score(emdat_ita, height, shape, shift):
         emdat_ita[f"tot_{x}"] = emdat_ita[[f"eq_{x}",f"dr_{x}",f"fl_{x}",f"st_{x}"]].sum(axis =1) * dict_scores[x]
     emdat_ita["tot_score"] = emdat_ita[[x for x in emdat_ita.columns if "tot" in x]].sum(axis =1)
     return emdat_ita[['date', 'origin', 'tot_score']]
+
+def calculate_tot_score_specific(emdat_ita, height, shape, shift, disaster):
+    global dict_scores
+    dict_scores = dict(zip([x for x in range(12)],
+                           zero_values_before_first_positive_and_after_first_negative(
+                               [height + shape * np.sin((np.pi / 6) * (x+shift)) for x in range(1, 13)])))
+    for x in range(12):
+        emdat_ita[f"tot_{x}"] = emdat_ita[[f"eq_{x}",f"dr_{x}",f"fl_{x}",f"st_{x}"]].sum(axis =1) * dict_scores[x]
+    disasters_dict = dict(zip(["Earthquake", "Flood", "Storm", "Drought"], ["eq", "fl", "st", "dr"]))
+    dis_name = disasters_dict[disaster]
+
+    emdat_ita[f"{dis_name}_score"] = emdat_ita[[x for x in emdat_ita.columns if dis_name in x]].sum(axis =1)
+    return emdat_ita[['date', 'origin', f"{dis_name}_score"]]
+
 def simulate_remittances(df_countries, height, shape, shift, rem_pct, disasters = True):
 
     if disasters:
@@ -76,8 +85,35 @@ def simulate_remittances(df_countries, height, shape, shift, rem_pct, disasters 
     df_countries['theta'] = constant + (param_nta * (df_countries['nta'])) \
                             + (param_asy * df_countries['asymmetry']) + (param_gdp * df_countries['gdp_diff_norm']) \
                             + (df_countries['tot_score'])
-    df_countries.loc[df_countries.nta == 0, 'theta'] == 0
     df_countries['probability'] = 1 / (1 + np.exp(-df_countries["theta"]))
+    df_countries.loc[df_countries.nta == 0, 'probability'] = 0
+    df_countries['sim_senders'] = (df_countries['probability'] * df_countries['n_people']).astype(int)
+    df_countries['sim_remittances'] = df_countries['sim_senders'] * df_countries['rem_amount']
+
+    remittance_per_period = df_countries.groupby(['date', 'origin', 'destination'])[['sim_remittances', 'sim_senders']].sum().reset_index()
+
+    return remittance_per_period
+
+def simulate_remittances_specific_disaster(df_countries, height, shape, shift, rem_pct, disaster):
+
+    emdat_ita = emdat[emdat.origin.isin(df_countries.origin.unique())].copy()
+    emdat_ita = calculate_tot_score_specific(emdat_ita, height, shape, shift, disaster)
+    disasters_dict = dict(zip(["Earthquake", "Flood", "Storm", "Drought"], ["eq", "fl", "st", "dr"]))
+    dis_name = disasters_dict[disaster]
+    try:
+        df_countries.drop(columns = f'{dis_name}_score', inplace = True)
+    except:
+        pass
+    df_countries = df_countries.merge(emdat_ita, on=['origin', 'date'], how='left')
+    df_countries[f'{dis_name}_score'].fillna(0, inplace = True)
+
+    df_countries['rem_amount'] = rem_pct * df_countries['gdp'] / 12
+
+    df_countries['theta'] = constant + (param_nta * (df_countries['nta'])) \
+                            + (param_asy * df_countries['asymmetry']) + (param_gdp * df_countries['gdp_diff_norm']) \
+                            + (df_countries[f'{dis_name}_score'])
+    df_countries['probability'] = 1 / (1 + np.exp(-df_countries["theta"]))
+    df_countries.loc[df_countries.nta == 0, 'probability'] = 0
     df_countries['sim_senders'] = (df_countries['probability'] * df_countries['n_people']).astype(int)
     df_countries['sim_remittances'] = df_countries['sim_senders'] * df_countries['rem_amount']
 
@@ -105,8 +141,8 @@ def quick_check_mex_(df_countries, height, shape, shift, rem_pct, plot = True, d
     df_countries['theta'] = constant + (param_nta * (df_countries['nta'])) \
                             + (param_asy * df_countries['asymmetry']) + (param_gdp * df_countries['gdp_diff_norm']) \
                             + (df_countries['tot_score'])
-    df_countries.loc[df_countries.nta == 0, 'theta'] == 0
     df_countries['probability'] = 1 / (1 + np.exp(-df_countries["theta"]))
+    df_countries.loc[df_countries.nta == 0, 'probability'] = 0
     df_countries['sim_senders'] = (df_countries['probability'] * df_countries['n_people']).astype(int)
     df_countries['sim_remittances'] = df_countries['sim_senders'] * df_countries['rem_amount']
 
@@ -118,19 +154,36 @@ def quick_check_mex_(df_countries, height, shape, shift, rem_pct, plot = True, d
 
     return remittance_per_period
 
-sim_mexico = quick_check_mex_(df, height, shape, shift, rem_pct)
+# sim_mexico = quick_check_mex_(df, height, shape, shift, rem_pct)
 
 ##### run simulations
 # WITH DISASTERS
 biggest_countries = df[["origin", "n_people"]].groupby('origin').sum().sort_values('n_people', ascending = False)[:20].index.tolist()
 
-print("simulating disasters ....")
+print("simulating all disasters ....")
 df_results = simulate_remittances(df, height, shape, shift, rem_pct, disasters = True)
-df_results.to_pickle("C:\\git-projects\\csh_remittances\\general\\results_plots\\all_flows_simulations_with_disasters_2307.pkl")
+df_results.to_parquet("C:\\git-projects\\csh_remittances\\general\\results_plots\\all_flows_simulations_with_disasters_CORRECT.parquet")
 # WITHOUT
 print("simulating NO disasters ...")
 df_results = simulate_remittances(df, height, shape, shift, rem_pct, disasters = False)
-df_results.to_pickle("C:\\git-projects\\csh_remittances\\general\\results_plots\\all_flows_simulations_without_disasters_2307.pkl")
+df_results.to_parquet("C:\\git-projects\\csh_remittances\\general\\results_plots\\all_flows_simulations_without_disasters_CORRECT.parquet")
+# DROUGHT
+print("simulating droughts ...")
+df_results = simulate_remittances_specific_disaster(df, height, shape, shift, rem_pct, disaster="Drought")
+df_results.to_parquet("C:\\git-projects\\csh_remittances\\general\\results_plots\\CORRECT_drought.parquet")
+# FLOOD
+print("simulating floods ...")
+df_results = simulate_remittances_specific_disaster(df, height, shape, shift, rem_pct, disaster="Flood")
+df_results.to_parquet("C:\\git-projects\\csh_remittances\\general\\results_plots\\CORRECT__floods.parquet")
+# WITHOUT
+print("simulating storms ...")
+df_results = simulate_remittances_specific_disaster(df, height, shape, shift, rem_pct, disaster="Storm")
+df_results.to_parquet("C:\\git-projects\\csh_remittances\\general\\results_plots\\CORRECT__storms.parquet")
+# WITHOUT
+print("simulating earthquakes ...")
+df_results = simulate_remittances_specific_disaster(df, height, shape, shift, rem_pct, disaster="Earthquake")
+df_results.to_parquet("C:\\git-projects\\csh_remittances\\general\\results_plots\\CORRECT__earthquakes.parquet")
+
 
 #################
 # plot

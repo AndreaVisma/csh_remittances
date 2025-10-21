@@ -37,7 +37,7 @@ df = df.merge(df_gdp, on=['destination', 'year'], how='left')
 df['rem_amount'] = 0.18 * df['gdp'] / 12
 
 ## disasters
-emdat = pd.read_pickle("C:\\Data\\my_datasets\\monthly_disasters_with_lags.pkl")
+emdat = pd.read_pickle("C:\\Data\\my_datasets\\monthly_disasters_with_lags_NEW.pkl")
 
 ## load italy & Philippines remittances
 #ITA
@@ -277,8 +277,10 @@ def plot_comparison(origin, dest):
 
 #######
 df_countries = get_df_countries(df)
-params = [2, -9.466, 7, 0.14, 0.2, 2, -0.84, 0.11]
+params = [2.323125219174453, -8.90268722949454, 9.158294373208719,
+            0.1788188275520765, 0.21924650014050806,-0.7500114294211869,
+            -0.04579122940366171, 0.13737550869522205]
 param_nta, param_asy, param_gdp, height, shape, shift, constant, rem_pct = params
 
-origin, dest = "Mexico", "USA"
+origin, dest = "Bangladesh", "Italy"
 plot_comparison(origin, dest)

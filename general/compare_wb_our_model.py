@@ -76,27 +76,42 @@ df_wb_yearly = df_wb[['year', 'origin', 'destination', 'remittances', 'sim_remit
 
 ################################
 
-df_results = pd.read_pickle("C:\\git-projects\\csh_remittances\\general\\results_plots\\all_flows_simulations_with_disasters.pkl")
+df_results = pd.read_parquet("C:\\git-projects\\csh_remittances\\general\\results_plots\\all_flows_simulations_with_disasters_CORRECT.parquet")
 df_results = df_results.merge(df_rem, on =["origin", "destination", "date"], how = 'inner')
 df_results = df_results.merge(df_wb[["date", "origin", "destination", "sim_remittances"]],
                               on = ["date", "origin", "destination"], how = 'inner',
                               suffixes = ("_our_model", "_wb"))
-df_results['error_our_model'] = ((df_results['remittances'] - df_results['sim_remittances_our_model'])/ 1e9)**2
-df_results['error_wb'] = ((df_results['remittances'] - df_results['sim_remittances_wb']) / 1e9)**2
+df_res_group = (df_results[['origin', 'destination', 'sim_remittances_our_model',
+                           'sim_remittances_wb', 'remittances']].groupby(['origin', 'destination'])
+                .sum().reset_index())
+cols = ['sim_remittances_our_model', 'sim_remittances_wb', 'remittances']
+for col in cols:
+    df_res_group[col] /= 1e9
 
+df_res_group['error_our_model'] = ((df_res_group['remittances'] - df_res_group['sim_remittances_our_model']))**2
+df_res_group['error_wb'] = ((df_res_group['remittances'] - df_res_group['sim_remittances_wb']))**2
+df_res_group['rel_err_our'] = 100 * abs((df_res_group['remittances'] - df_res_group['sim_remittances_our_model'])/
+                               df_res_group['remittances'])
+df_res_group['rel_err_wb'] = 100 * abs((df_res_group['remittances'] - df_res_group['sim_remittances_wb'])/
+                               df_res_group['remittances'])
+df_plot = df_res_group[(df_res_group.error_our_model < 200) & (df_res_group.error_wb < 200)]
 #######################
-
 list_res = []
 for i in tqdm(range(1000)):
-    df_sam = df_results.sample(int(0.8 * len(df_results)))
-    local_errors = [i, df_sam.error_our_model.sum(), df_sam.error_wb.sum()]
+    df_sam = df_plot.sample(int(0.6 * len(df_res_group)))
+    our_err = df_sam.error_our_model.mean()
+    wb_err  = df_sam.error_wb.mean()
+    our_err_rel = df_sam.rel_err_our.mean()
+    wb_err_rel  = df_sam.rel_err_wb.mean()
+    local_errors = [i, our_err, wb_err, our_err_rel, wb_err_rel]
     list_res.append(local_errors)
 
-df_sam_tot = pd.DataFrame(list_res, columns=["run_nr", "our_err", "wb_err"])
+df_sam_tot = pd.DataFrame(list_res, columns=["run_nr", "error_our_model", "error_wb", "rel_our", "rel_wb"])
 
+# histogram errors
 plt.figure(figsize=(10, 6))
-plt.hist(df_sam_tot['our_err'], bins = 50, alpha=0.7, label='Our Error')
-plt.hist(df_sam_tot['wb_err'], bins = 50, alpha=0.7, label='WB Error')
+plt.hist(df_sam_tot['error_our_model'], bins = 20,alpha=0.7, label='Our Error')
+plt.hist(df_sam_tot['error_wb'], bins = 20, alpha=0.7, label='WB Error')
 plt.xlabel('Error Value')
 plt.ylabel('Frequency')
 plt.title('Histogram of Errors')
@@ -107,12 +122,116 @@ plt.show(block = True)
 
 import seaborn as sns
 
-df_melted = df_sam_tot.melt(id_vars='run_nr', value_vars=['our_err', 'wb_err'],
+df_melted = df_sam_tot.melt(id_vars=['run_nr'], value_vars=['error_our_model', 'error_wb'],
+                    var_name='Error Type', value_name='Error Value')
+
+# Plot with seaborn
+
+fig, ax = plt.subplots(figsize=(10, 6))
+
+# Histogram only (no kde here)
+sns.histplot(
+    data=df_melted,
+    x='Error Value',
+    hue='Error Type',
+    bins=15,
+    element='step',
+    stat='density',
+    common_norm=False,
+    ax=ax
+)
+
+# Add KDEs separately with thicker lines
+sns.kdeplot(
+    data=df_melted,
+    x="Error Value",
+    hue="Error Type",
+    common_norm=False,
+    ax=ax,
+    lw=2.5  # works here
+)
+
+# Add vertical lines at the means for each Error Type
+palette = sns.color_palette()  # get seaborn colors
+for i, (error_type, group_data) in enumerate(df_melted.groupby("Error Type")):
+    mean_val = group_data["Error Value"].mean()
+    ax.axvline(mean_val, linestyle="--", linewidth=2, color=palette[i],
+               label=f"{error_type} Mean")
+
+plt.xticks(fontsize=16)
+plt.yticks(fontsize=16)
+
+plt.grid(True)
+plt.tight_layout()
+plt.legend().remove()
+# ax.legend(False)
+fig.savefig('./plots/for_paper/comparison_WB.svg', bbox_inches='tight')
+plt.show(block=True)
+
+df_melted_2 = df_plot.melt(id_vars=['origin', 'destination'], value_vars=['error_our_model', 'error_wb'],
+                    var_name='Error Type', value_name='Error Value')
+plt.figure(figsize=(10, 6))
+sns.histplot(data=df_melted_2, x='Error Value', hue='Error Type', bins=15, kde=True, element='step', stat='density', common_norm=False)
+plt.title('Histogram of Errors (Seaborn)')
+plt.grid(True)
+plt.tight_layout()
+plt.show(block = True)
+
+
+
+
+
+
+
+
+
+
+
+
+
+######################
+list_res = []
+for i in tqdm(range(1000)):
+    df_sam = df_res_group.sample(int(0.4 * len(df_res_group)))
+    our_err = df_sam.error_our_model.sum()
+    wb_err  = df_sam.error_wb.sum()
+    our_err_rel = df_sam.rel_err_our.sum()
+    wb_err_rel  = df_sam.rel_err_wb.sum()
+    local_errors = [i, our_err, wb_err, our_err_rel, wb_err_rel]
+    list_res.append(local_errors)
+
+df_sam_tot = pd.DataFrame(list_res, columns=["run_nr", "our_err", "wb_err", "rel_our", "rel_wb"])
+
+plt.figure(figsize=(10, 6))
+plt.hist(df_plot['rel_err_our'], bins = 50,alpha=0.7, label='Our Error')
+plt.hist(df_plot['rel_err_wb'], bins = 50, alpha=0.7, label='WB Error')
+plt.xlabel('Error Value')
+plt.ylabel('Frequency')
+plt.title('Histogram of Errors')
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+plt.show(block = True)
+
+plt.figure(figsize=(10, 6))
+plt.hist(df_sam_tot['rel_our'], bins = 50,alpha=0.7, label='Our Error')
+plt.hist(df_sam_tot['rel_wb'], bins = 50, alpha=0.7, label='WB Error')
+plt.xlabel('Error Value')
+plt.ylabel('Frequency')
+plt.title('Histogram of Errors')
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+plt.show(block = True)
+
+import seaborn as sns
+
+df_melted = df_plot.melt(id_vars=['origin', 'destination'], value_vars=['rel_err_our', 'rel_err_wb'],
                     var_name='Error Type', value_name='Error Value')
 
 # Plot with seaborn
 plt.figure(figsize=(10, 6))
-sns.histplot(data=df_melted, x='Error Value', hue='Error Type', bins=5, kde=True, element='step', stat='density', common_norm=False)
+sns.histplot(data=df_melted, x='Error Value', hue='Error Type', bins=20, kde=True, element='step', stat='density', common_norm=False)
 plt.title('Histogram of Errors (Seaborn)')
 plt.grid(True)
 plt.tight_layout()

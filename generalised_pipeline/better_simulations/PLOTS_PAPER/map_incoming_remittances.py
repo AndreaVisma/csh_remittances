@@ -97,7 +97,7 @@ fig.write_image(f'.\\plots\\for_paper\\disaster_mao_BINS.svg')
 fig.show()
 
 ############################
-# rem per person per year
+# Disaster rem per person per year
 
 df_merge = df_pop_country.merge(df_merge, left_on = 'country', right_on = 'origin', how = "left").fillna(0)
 df_merge['disaster_rem_per_person_year'] = (0.1 * df_merge["disaster_rem"]) / df_merge["population"]
@@ -143,7 +143,48 @@ fig.update_layout(
 fig.write_image(f'.\\plots\\for_paper\\DISASTER_rem_per_person_year_BINS.svg')
 fig.show()
 
+###############################
+# Total rem per person year
 
+bins_rem_tot = [0, 10, 50, 150, 400, 1000, df_merge["rem_per_person_year"].max()]
+labels_rem_tot = [
+    "< 10", "10 - 50", "50 - 150", "150 - 400", "400 - 1000", "> 1000"
+]
+df_merge["rem_per_person_year"] = pd.cut(
+    df_merge["rem_per_person_year"],
+    bins=bins_rem_tot,
+    labels=labels_rem_tot,
+    include_lowest=True
+).astype(pd.CategoricalDtype(categories=labels_rem_tot, ordered=True))
+df_merge.sort_values("rem_per_person_year", inplace = True)
+df_merge.loc[df_merge.origin == "CAR", 'country'] = "Central African Republic"
+
+colors = px.colors.sample_colorscale("Blues", [i/6 for i in range(6)])
+color_map_tot_rem = dict(zip(labels_rem_tot, colors))
+
+# Choropleth with bins
+fig = px.choropleth(
+    df_merge,
+    locations="country",
+    locationmode="country names",
+    color="rem_per_person_year",   # categorical bins
+    hover_name="country",
+    hover_data={"rem_per_person_year": ":,.0f"},  # show absolute values nicely
+    color_discrete_map=color_map_tot_rem
+)
+
+style = "natural earth"
+fig.update_layout(
+    geo=dict(
+        showframe=False,
+        showcoastlines=False,
+        projection_type=style
+    ),
+       width=1800, height=1000
+)
+
+fig.write_image(f'.\\plots\\for_paper\\TOTAL_rem_per_person_year_BINS.svg')
+fig.show()
 
 ##############################
 df_merge_dis = df_merge.merge(dis_by_country, on = "origin", how = "left")

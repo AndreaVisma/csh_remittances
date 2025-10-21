@@ -39,7 +39,7 @@ df = df.merge(df_gdp, on=['destination', 'year'], how='left')
 df['gdp'] = 0.18 * df['gdp'] / 12
 
 ## disasters
-emdat = pd.read_pickle("C:\\Data\\my_datasets\\monthly_disasters_with_lags.pkl")
+emdat = pd.read_pickle("C:\\Data\\my_datasets\\monthly_disasters_with_lags_NEW.pkl")
 
 ## load italy & Philippines remittances
 #ITA

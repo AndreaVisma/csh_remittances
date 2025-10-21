@@ -43,7 +43,7 @@ df_nta = pd.read_pickle("C:\\Data\\economic\\nta\\processed_nta.pkl")
 nta_dict = {}
 
 ## disasters
-emdat = pd.read_pickle("C:\\Data\\my_datasets\\monthly_disasters_with_lags.pkl")
+emdat = pd.read_pickle("C:\\Data\\my_datasets\\monthly_disasters_with_lags_NEW.pkl")
 
 
 #########################################

@@ -30,7 +30,7 @@ df = df.merge(df_gdp, on=['destination', 'date'], how='left')
 df['rem_amount'] = 0.15 * df.gdp /12
 
 ## disasters
-emdat = pd.read_pickle("C:\\Data\\my_datasets\\monthly_disasters_with_lags.pkl")
+emdat = pd.read_pickle("C:\\Data\\my_datasets\\monthly_disasters_with_lags_NEW.pkl")
 
 ## load remittances
 #ITA
@@ -229,8 +229,8 @@ def check_params_combo_faster(df_countries, height, shape, shift, rem_pct, plot 
     df_countries['theta'] = constant + (param_nta * (df_countries['nta'])) \
                     + (param_asy * df_countries['asymmetry']) + (param_gdp * df_countries['gdp_diff_norm']) \
                     + (df_countries['tot_score'])
-    df_countries.loc[df_countries.nta == 0, 'theta'] == 0
     df_countries['probability'] = 1 / (1 + np.exp(-df_countries["theta"]))
+    df_countries.loc[df_countries.nta == 0, 'probability'] = 0
     df_countries['sim_senders'] = (df_countries['probability'] * df_countries['n_people']).astype(int)
     df_countries['sim_remittances'] = df_countries['sim_senders'] * df_countries['rem_amount']
 
@@ -250,14 +250,14 @@ def check_params_combo_faster(df_countries, height, shape, shift, rem_pct, plot 
 import time
 
 df_countries = get_df_countries(df_sampled)
-params = [2.725302695640765, -9.769960496731258, 8.310039749519659,
-            0.1788188275520765, 0.21924650014050806,-0.7500114294211869,
-            0.3856959277016759, 0.1333609093157307]
+params = [2.5688294072397375, -9.9258425978672, 8.637134501037425,
+            0.2337965838718275, 0.272087461937716,-0.7457719761289481,
+            0.21375934475668515, 0.13041116247195136]
 param_nta, param_asy, param_gdp, height, shape, shift, constant, rem_pct = params
 
 print(f"================================")
 start = time.time()
-results_new = check_params_combo_faster(df_countries, height, shape, shift, rem_pct, plot = False)
+results_new = check_params_combo_faster(df_countries, height, shape, shift, rem_pct, plot = True)
 end = time.time()
 print(f"running time new function: {end - start}")
 
@@ -305,13 +305,14 @@ def return_train_test_result(params):
     except:
         pass
     df_countries = df_countries.merge(emdat_ita, on=['origin', 'date'], how='left')
+    df_countries['tot_score'].fillna(0, inplace = True)
     df_countries['rem_amount'] = rem_pct * df_countries['gdp'] / 12
 
     df_countries['theta'] = constant + (param_nta * (df_countries['nta'])) \
                             + (param_asy * df_countries['asymmetry']) + (param_gdp * df_countries['gdp_diff_norm']) \
                             + (df_countries['tot_score'])
-    df_countries.loc[df_countries.nta == 0, 'theta'] == 0
     df_countries['probability'] = 1 / (1 + np.exp(-df_countries["theta"]))
+    df_countries.loc[df_countries.nta == 0, 'probability'] == 0
     df_countries['sim_senders'] = (df_countries['probability'] * df_countries['n_people']).astype(int)
     df_countries['sim_remittances'] = df_countries['sim_senders'] * df_countries['rem_amount']
 
@@ -327,6 +328,7 @@ def return_train_test_result(params):
     except:
         pass
     df_countries = df_countries.merge(emdat_ita, on=['origin', 'date'], how='left')
+    df_countries['tot_score'].fillna(0, inplace = True)
     df_countries['rem_amount'] = rem_pct * df_countries['gdp'] / 12
 
     df_countries['sim_senders'] = df_countries.apply(simulate_row_grouped_deterministic, axis=1)
@@ -385,15 +387,32 @@ def plot_train_test(df_test):
 
     plt.suptitle("Calibration Results")
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+    fig.savefig('.\plots\\for_paper\\calibration.svg', bbox_inches='tight')
     plt.show(block = True)
 
 params = [x for x in res.x]
 # params = [1.89, -9.466, 7, 0.27, 0.39, -2, -0.84, 0.11]
 param_nta, param_asy, param_gdp, height, shape, shift, constant, rem_pct = params
-res = check_params_combo_faster(get_df_countries(df), height, shape, shift, rem_pct, plot=True)
+res = check_params_combo_faster(get_df_countries(df_not_sampled), height, shape, shift, rem_pct, plot=True)
 
 df_test = return_train_test_result(params)
 plot_train_test(df_test)
+test_plot = df_test[df_test.type == 'test']
+
+fig, ax = plt.subplots(figsize=(12, 9))
+ax.scatter(test_plot['remittances'], test_plot['sim_remittances'], alpha=0.5, label='Test sample', marker = 'o')
+lims = [0, test_plot['remittances'].max()]
+ax.plot(lims, lims, 'k-', alpha=1, zorder=1)
+# plt.xlabel('Observed Remittances')
+# plt.ylabel('Simulated Remittances')
+# plt.title("Calibration results")
+plt.yscale('log')
+plt.xscale('log')
+# plt.legend()
+plt.grid(True)
+fig.savefig('.\plots\\for_paper\\CALIBRATION.svg', bbox_inches = 'tight')
+plt.show(block = True)
+
 
 fig = px.scatter(df_test, x="remittances", y="sim_remittances", trendline="ols", color = 'type')
 fig.show()

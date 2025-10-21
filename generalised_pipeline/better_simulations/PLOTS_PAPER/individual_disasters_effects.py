@@ -260,3 +260,158 @@ plt.yticks(fontsize=16)
 plt.tight_layout()
 fig.savefig('.\plots\\for_paper\\square_disasters_INVERTED.svg', bbox_inches = 'tight')
 plt.show(block = True)
+
+######################################
+# Map disaster-remittance with people affected
+emdat = pd.read_excel("c:\\data\\natural_disasters\\emdat_2024_07_all.xlsx")
+emdat = emdat[(emdat["Start Year"] >= 2000) &
+              (emdat["Disaster Group"] == "Natural")].copy()
+emdat["Country"] = emdat["Country"].map(dict_names)
+
+#create a dataset with dummy variables
+df_nd = emdat[["Country", "Start Year", "Start Month", "Start Day","End Year", "End Month", "End Day",
+               "Total Affected", "Total Damage, Adjusted ('000 US$)", "Disaster Type"]].copy()
+df_nd = df_nd[~df_nd["Start Month"].isna()]
+
+#clean dates
+df_nd[['Start Year','Start Month', 'Start Day']] = (
+    df_nd[['Start Year','Start Month', 'Start Day']].fillna(1).astype(int))
+df_nd.loc[df_nd["End Month"].isna(), "End Month"] = df_nd.loc[df_nd["End Month"].isna(), "Start Month"]
+df_nd[['End Year','End Month', 'End Day']] = (
+    df_nd[['End Year','End Month', 'End Day']].fillna(1).astype(int))
+df_nd["start_date"] = pd.to_datetime(df_nd[['Start Year','Start Month', 'Start Day']].rename(columns=dict(zip(['Start Year','Start Month', 'Start Day'],
+                                                                                                              ['year', 'month', 'day']))))
+df_nd["end_date"] = pd.to_datetime(df_nd[['End Year','End Month', 'End Day']].rename(columns=dict(zip(['End Year','End Month', 'End Day'],
+                                                                                                              ['year', 'month', 'day']))))
+df_nd.drop(columns = ['End Year','End Month', 'End Day', 'Start Year','Start Month', 'Start Day'], inplace = True)
+df_nd.rename(columns = {'Country' : 'country', "Total Affected" : "total_affected", "Total Damage, Adjusted ('000 US$)" : "total_damage"}, inplace = True)
+df_nd = df_nd[~df_nd.total_affected.isna()]
+df_nd["total_damage"] *= 1000
+df_nd["duration"] = (df_nd["end_date"] - df_nd["start_date"]).dt.days + 1
+
+def spread_disasters_monthly(df):
+    expanded_rows = []
+    for _, row in tqdm(df.iterrows(), total=len(df)):
+        # Generate month starts between start and end
+        date_range = pd.date_range(start=row['start_date'], end=row['end_date'], freq='MS')
+        num_months = len(date_range)
+        if num_months == 0:
+            # If the event lasts less than a month, assign it to the start month
+            expanded_rows.append({
+                'country': row['country'],
+                'month_start': row['start_date'].replace(day=1),
+                'total_affected': row['total_affected'],
+                'total_damage': row["total_damage"],
+                'type': row["Disaster Type"]
+            })
+        else:
+            # Distribute values evenly across months
+            affected_per_month = row['total_affected'] / num_months
+            damage_per_month = row["total_damage"] / num_months
+            for month_start in date_range:
+                expanded_rows.append({
+                    'country': row['country'],
+                    'month_start': month_start,
+                    'total_affected': affected_per_month,
+                    'total_damage': damage_per_month,
+                    'type': row["Disaster Type"]
+                })
+    return pd.DataFrame(expanded_rows)
+
+# Expand disasters to monthly level
+monthly_disasters = spread_disasters_monthly(df_nd)
+disasters = ['Drought', 'Earthquake', 'Flood', 'Storm']
+disasters_short = ['dr', 'eq', 'fl', 'st']
+disaster_names = dict(zip(disasters, disasters_short))
+
+# Use monthly_disasters we created earlier
+df_nat = monthly_disasters.copy()
+
+# Keep only relevant disaster types
+df_nat = df_nat[df_nat['type'].isin(disasters)].copy()
+df_nat = df_nat[(df_nat.month_start.dt.year >= 2010) & (df_nat.month_start.dt.year <=2020)]
+
+cols = ["month_start", "total_affected"]
+
+def group_DIS_by_quarter(df, col_name):
+    return (df[cols]
+            .groupby(pd.Grouper(key='month_start', freq='Q'))
+            .sum()
+            .reset_index()
+            .rename(columns={'total_affected': col_name}))
+
+
+floods_aff = group_DIS_by_quarter(df_nat[df_nat.type == "Flood"], 'floods')
+storms_aff  = group_DIS_by_quarter(df_nat[df_nat.type == "Storm"], 'storms')
+droughts_aff  = group_DIS_by_quarter(df_nat[df_nat.type == "Drought"], 'droughts')
+earthquakes_aff  = group_DIS_by_quarter(df_nat[df_nat.type == "Earthquake"], 'earthquakes')
+
+dfs = [
+    floods_aff, storms_aff, droughts_aff,
+    earthquakes_aff
+]
+
+disasters_all = reduce(lambda left, right: pd.merge(left, right, on=['month_start'], how='outer'), dfs)
+disasters_all.month_start = disasters_all.month_start - datetime.timedelta(weeks=12)
+
+colors = {
+    "earthquakes": "orange",
+    "storms": "green",
+    "droughts": "red",
+    "floods": "blue"
+}
+# disasters_all[['floods', 'storms', 'droughts', 'earthquakes']] = disasters_all[['floods', 'storms', 'droughts', 'earthquakes']] / 10
+ymax_dis = disasters_all[['floods', 'storms', 'droughts', 'earthquakes']].max().max()
+
+for disaster in df_imp.columns:
+    fig, ax1 = plt.subplots(figsize=(3.4, 4.6))
+
+    # --- First line: disaster-induced remittances (already in df_imp) ---
+    ax1.plot(
+        df_imp.index,
+        df_imp[disaster],
+        color=colors[disaster],
+        linewidth=2,
+        label="Remittances"
+    )
+    ax1.set_ylim(0, ymax + 1e8)
+    ax1.spines['top'].set_visible(False)
+    ax1.spines['right'].set_visible(False)
+    ax1.spines['left'].set_visible(False)
+    # ax1.set_ylabel("Remittances", fontsize=12)
+
+    # --- Second line: people affected, pulled from disasters_all ---
+    ax2 = ax1.twinx()  # secondary y-axis
+    ax2.plot(
+        disasters_all["month_start"].iloc[:-3],
+        disasters_all[disaster].iloc[:-3],
+        color="black",
+        linestyle="--",
+        linewidth=1.5,
+        label="People affected"
+    )
+    ax2.set_ylim(0, ymax_dis + 1e6)
+    # ax2.set_yticks([0, 20* 1e6, 40* 1e6, 60* 1e6, 80* 1e6, 100* 1e6, 120* 1e6] )
+    # ax2.set_ylabel("People affected", fontsize=12)
+
+    # --- Style ---
+    ax1.set_xlabel("", fontsize=13)
+    ax1.tick_params(axis="both", labelsize=13)
+    ax2.tick_params(axis="y", labelsize=13)
+    ax2.spines['top'].set_visible(False)
+    ax2.spines['right'].set_visible(False)
+    ax2.spines['left'].set_visible(False)
+
+    # Optional: combine legends from both axes
+    # lines1, labels1 = ax1.get_legend_handles_labels()
+    # lines2, labels2 = ax2.get_legend_handles_labels()
+    # ax1.legend(lines1 + lines2, labels1 + labels2, loc="upper left", fontsize=10)
+
+    # --- Save ---
+    fig.savefig(f'./plots/for_paper/{disaster}_TIMESERIES.svg', bbox_inches='tight')
+    # plt.show(block = True)
+    plt.close(fig)
+
+
+
+

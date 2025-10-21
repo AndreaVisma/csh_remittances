@@ -26,7 +26,7 @@ diasporas_file = "C:\\Data\\migration\\bilateral_stocks\\interpolated_stocks_and
 df = pd.read_pickle(diasporas_file)
 df = df.dropna()
 df['year'] = df.date.dt.year
-df = df[(df.year == 2019) & (df.date.dt.month == 12)]
+df = df[(df.year == 2015) & (df.date.dt.month == 12)]
 
 df_gdp = pd.read_pickle("c:\\data\\economic\\gdp\\annual_gdp_per_capita_splined.pkl")
 df = df.merge(df_gdp, on=['destination', 'date'], how='left')
@@ -127,12 +127,13 @@ smaller_country_profiles = {k: random.sample(country_profiles[k], 1000)
                     for k in country_profiles.keys()
                     if len(country_profiles[k]) > 1000}
 
-interest_keys = ["India", "Switzerland", "Haiti"]
+interest_keys = ["India", "Costa Rica", "Haiti"]
 dict_to_plot = {k: smaller_country_profiles[k] for k in interest_keys}
 
 biggest_countries_dict = {k: smaller_country_profiles[k] for k in biggest_countries.origin.tolist()}
 
-fig, ax = plt.subplots(figsize=(7.2, 4.2))
+# fig, ax = plt.subplots(figsize=(7.2, 4.2))
+fig, ax = plt.subplots(figsize=(6.5, 4.8))
 
 for label, probs in tqdm(biggest_countries_dict.items()):
     probs = np.sort(probs)
@@ -153,7 +154,32 @@ import matplotlib.ticker as mtick
 ax.yaxis.set_major_formatter(mtick.PercentFormatter(1.0))
 ax.spines['top'].set_visible(False)
 ax.spines['right'].set_visible(False)
-fig.savefig('C:\\Users\\Andrea Vismara\\Desktop\\papers\\remittances\\figures\\diaspora_profiles_2015.svg', bbox_inches = 'tight')
+fig.savefig('C:\\Users\\Andrea Vismara\\Desktop\\papers\\remittances\\figures\\diaspora_profiles_WIDE.svg', bbox_inches = 'tight')
+plt.show(block = True)
+
+##############
+
+mock_keys = ["Iran", "Afghanistan"]
+mock_to_plot = {k: smaller_country_profiles[k] for k in mock_keys}
+
+fig, ax = plt.subplots(figsize=(7.2, 4.2))
+# fig, ax = plt.subplots(figsize=(6.5, 4.8))
+
+for label, probs in mock_to_plot.items():
+    probs = np.sort(probs)
+    x = np.linspace(0, 1, len(probs))
+    auc = np.trapz(probs, x)
+    plt.plot(x, probs, label=f"{label}, AUC: {round(auc, 3)}", linewidth=3.5)
+
+plt.grid(False)
+# plt.legend()
+plt.xticks([])
+plt.yticks(fontsize=16)
+import matplotlib.ticker as mtick
+ax.yaxis.set_major_formatter(mtick.PercentFormatter(1.0))
+ax.spines['top'].set_visible(False)
+ax.spines['right'].set_visible(False)
+fig.savefig('C:\\Users\\Andrea Vismara\\Desktop\\papers\\remittances\\figures\\mock_profiles_WIDE.svg', bbox_inches = 'tight')
 plt.show(block = True)
 
 ######################################
@@ -274,7 +300,8 @@ import matplotlib.ticker as mtick
 import matplotlib.cm as cm
 import matplotlib.colors as mcolors
 
-fig, ax = plt.subplots(figsize=(7.4, 4.2))
+# fig, ax = plt.subplots(figsize=(7.4, 4.2))
+fig, ax = plt.subplots(figsize=(6.5, 4.8))
 
 # Define a colormap (choose one you like, e.g. viridis, plasma, inferno, cividis, etc.)
 cmap = plt.cm.Blues
@@ -300,6 +327,7 @@ for label, probs in smaller_mex_profiles.items():
 # Formatting
 plt.grid(False)
 # plt.legend()
+ax.set_ylim(-0.05,1.05)
 plt.xticks([])
 ax.spines['top'].set_visible(False)
 ax.spines['right'].set_visible(False)
@@ -307,7 +335,7 @@ plt.yticks(fontsize=16)
 ax.yaxis.set_major_formatter(mtick.PercentFormatter(1.0))
 
 fig.savefig(
-    'C:\\Users\\Andrea Vismara\\Desktop\\papers\\remittances\\figures\\diaspora_profiles_MEXICO.svg',
+    'C:\\Users\\Andrea Vismara\\Desktop\\papers\\remittances\\figures\\diaspora_profiles_MEXICO_TALL.svg',
     bbox_inches='tight'
 )
 plt.show(block=True)
