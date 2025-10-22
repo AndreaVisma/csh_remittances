@@ -121,7 +121,7 @@ un_pairs = plot_asy_country("Egypt")
 ## gdp differential
 df_gdp = (pd.read_pickle("c:\\data\\economic\\gdp\\annual_gdp_deltas.pkl"))
 df_gdp['gdp_diff_norm'] = 2* (df_gdp['gdp_diff'] - df_gdp['gdp_diff'].min()) / (df_gdp['gdp_diff'].max() - df_gdp['gdp_diff'].min()) - 1
-df_gdp = df_gdp[["date", "origin", "destination", "gdp_diff_norm"]]
+df_gdp = df_gdp[["date", "origin", "destination", "gdp_diff_norm", "relative_diff"]]
 df_gdp['date'] = pd.to_datetime(df_gdp['date'])
 
 list_df_months = []
@@ -134,16 +134,20 @@ for dest_country in pbar:
     monthly_times = (monthly_dates - start_date).days
     df_destination['time'] = (df_destination['date'] - df_destination['date'].min()).dt.days
 
-    cols = ['date', 'origin', 'gdp_diff_norm']
+    cols = ['date', 'origin', 'gdp_diff_norm', "relative_diff"]
     list_dfs = []
     for country in df_destination.origin.unique():
         try:
             data = [monthly_dates,
                     [country] * len(monthly_dates)]
-            cs = CubicSpline(df_destination[(df_destination.origin == country)]['time'],
+            cs_norm = CubicSpline(df_destination[(df_destination.origin == country)]['time'],
                              df_destination[(df_destination.origin == country)]["gdp_diff_norm"])
-            vals = cs(monthly_times)
-            data.append(vals)
+            cs_rel = CubicSpline(df_destination[(df_destination.origin == country)]['time'],
+                                  df_destination[(df_destination.origin == country)]["relative_diff"])
+            vals_norm = cs_norm(monthly_times)
+            vals_rel = cs_rel(monthly_times)
+            data.append(vals_norm)
+            data.append(vals_rel)
             dict_country = dict(zip(cols, data))
             country_df = pd.DataFrame(dict_country)
             list_dfs.append(country_df)
@@ -243,9 +247,10 @@ for country in tqdm(df.destination.unique()):
 
     ##gdp diff
     df_gdp_ita = result_gdp.query(f"""`destination` == '{country}'""")
-    df_country_ita = df_country_ita.merge(df_gdp_ita[["date", "gdp_diff_norm", "origin"]], on=["date", "origin"],
+    df_country_ita = df_country_ita.merge(df_gdp_ita[["date", "gdp_diff_norm", "relative_diff", "origin"]], on=["date", "origin"],
                                   how='left')
     df_country_ita['gdp_diff_norm'] = df_country_ita['gdp_diff_norm'].ffill().bfill()
+    df_country_ita['relative_diff'] = df_country_ita['relative_diff'].ffill().bfill()
 
     list_dfs.append(df_country_ita)
 df_all = pd.concat(list_dfs)
@@ -257,5 +262,5 @@ df_nta = (df_nta.rename(columns = {'age' : 'mean_age', 'country' : 'destination'
     [['destination', 'mean_age', 'nta']])
 df_all = df_all.merge(df_nta, on = ['destination', 'mean_age'], how = 'left')
 
-df_all.to_pickle("C:\\Data\\migration\\bilateral_stocks\\interpolated_stocks_and_dem_factors_2207_TRAIN.pkl")
+df_all.to_pickle("C:\\Data\\migration\\bilateral_stocks\\interpolated_stocks_and_dem_factors_2210.pkl")
 

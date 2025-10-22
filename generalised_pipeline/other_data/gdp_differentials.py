@@ -66,7 +66,8 @@ df_pairs = pd.concat(dfs)
 df_pairs.rename(columns = {"country_dest" : "destination", "country_or" : "origin"}, inplace = True)
 df_pairs = df_pairs[df_pairs.destination != df_pairs.origin]
 df_pairs['date'] = pd.to_datetime(df_pairs['year'], format="%Y") + MonthEnd(0)
-df_pairs.drop(columns = ["gdp_or", "gdp_dest", "year"], inplace = True)
+# df_pairs.drop(columns = ["gdp_or", "gdp_dest", "year"], inplace = True)
+df_pairs["relative_diff"] = (df_pairs["gdp_or"] - df_pairs["gdp_dest"]) / df_pairs["gdp_or"]
 df_pairs = df_pairs[df_pairs.date.dt.year > 2009]
 df_pairs.ffill(inplace=True)
 
