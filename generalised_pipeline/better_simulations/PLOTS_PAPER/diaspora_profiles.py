@@ -22,7 +22,7 @@ from utils import zero_values_before_first_positive_and_after_first_negative
 param_stay = 0
 
 ## Diaspora numbers
-diasporas_file = "C:\\Data\\migration\\bilateral_stocks\\interpolated_stocks_and_dem_factors_2207_TRAIN.pkl"
+diasporas_file = "C:\\Data\\migration\\bilateral_stocks\\interpolated_stocks_and_dem_factors_2210.pkl"
 df = pd.read_pickle(diasporas_file)
 df = df.dropna()
 df['year'] = df.date.dt.year
@@ -36,9 +36,15 @@ emdat = pd.read_pickle("C:\\Data\\my_datasets\\monthly_disasters_with_lags_NEW.p
 
 ####parameters
 
-params = [2.323125219174453, -8.90268722949454, 9.158294373208719,
-            0.1788188275520765, 0.21924650014050806,-0.7500114294211869,
-            -0.04579122940366171, 0.13737550869522205]
+params = [np.float64(0.8099777130329276),
+ np.float64(-5.063063046802301),
+ np.float64(0.33406191022068343),
+ np.float64(0.13002293544007684),
+ np.float64(0.07314235907515484),
+ np.float64(-0.7600977534803358),
+ np.float64(0.1857387635258146),
+ np.float64(0.1010346025271759)]
+
 ######## functions
 
 param_nta, param_asy, param_gdp, height, shape, shift, constant, rem_pct = params
@@ -77,7 +83,7 @@ def simulate_remittance_probability(df_countries, height, shape, shift, rem_pct,
     # df_countries['rem_amount'] = rem_pct * df_countries['gdp'] / 12
 
     df_countries['theta'] = constant + (param_nta * (df_countries['nta'])) \
-                            + (param_asy * df_countries['asymmetry']) + (param_gdp * df_countries['gdp_diff_norm']) \
+                            + (param_asy * df_countries['asymmetry']) + (param_gdp * df_countries['relative_diff']) \
                             + (df_countries['tot_score'])
     df_countries['probability'] = 1 / (1 + np.exp(-df_countries["theta"]))
     df_countries.loc[df_countries.nta <= 0.01, 'probability'] = 0
@@ -113,21 +119,19 @@ for country, group in tqdm(df_prob.groupby('origin')):
     # Sort by probability and expand based on population
     sorted_group = group.sort_values('probability')
     profile = []
-
     for _, row in sorted_group.iterrows():
         profile.extend([row['probability']] * int(row['n_people']))
-
-    country_profiles[country] = profile
+        country_profiles[country] = profile
 
 # Convert dictionary to DataFrame
 df_avg_prob = pd.DataFrame([{"country": k, "avg_prob": sum(v) / len(v) if len(v) > 0 else 0} for k, v in country_profiles.items()])
 df_avg_prob = df_avg_prob.sort_values("avg_prob", ascending=False)
 
-smaller_country_profiles = {k: random.sample(country_profiles[k], 1000)
+smaller_country_profiles = {k: random.sample(country_profiles[k], 2000)
                     for k in country_profiles.keys()
-                    if len(country_profiles[k]) > 1000}
+                    if len(country_profiles[k]) > 2000}
 
-interest_keys = ["India", "Costa Rica", "Haiti"]
+interest_keys = ["India", "Costa Rica", "Haiti", "Mexico"]
 dict_to_plot = {k: smaller_country_profiles[k] for k in interest_keys}
 
 biggest_countries_dict = {k: smaller_country_profiles[k] for k in biggest_countries.origin.tolist()}
@@ -143,7 +147,7 @@ for label, probs in tqdm(biggest_countries_dict.items()):
 for label, probs in dict_to_plot.items():
     probs = np.sort(probs)
     x = np.linspace(0, 1, len(probs))
-    auc = np.trapz(probs, x)
+    auc = np.trapezoid(probs, x)
     plt.plot(x, probs, label=f"{label}, AUC: {round(auc, 3)}", linewidth=3.5)
 
 plt.grid(False)
@@ -154,9 +158,14 @@ import matplotlib.ticker as mtick
 ax.yaxis.set_major_formatter(mtick.PercentFormatter(1.0))
 ax.spines['top'].set_visible(False)
 ax.spines['right'].set_visible(False)
-fig.savefig('C:\\Users\\Andrea Vismara\\Desktop\\papers\\remittances\\figures\\diaspora_profiles_WIDE.svg', bbox_inches = 'tight')
+fig.savefig('C:\\Users\\Andrea Vismara\\Desktop\\papers\\remittances\\figures\\diaspora_profiles_WIDE_neww.svg', bbox_inches = 'tight')
 plt.show(block = True)
 
+
+#####################
+# Mexico??
+df_mexi = df_prob[(df_prob.origin == "Mexico") & (df_prob.probability > 0.9)]
+df_mexi = df_prob[(df_prob.origin == "Haiti") & (df_prob.probability > 0.9)]
 ##############
 
 mock_keys = ["Iran", "Afghanistan"]
@@ -179,7 +188,7 @@ import matplotlib.ticker as mtick
 ax.yaxis.set_major_formatter(mtick.PercentFormatter(1.0))
 ax.spines['top'].set_visible(False)
 ax.spines['right'].set_visible(False)
-fig.savefig('C:\\Users\\Andrea Vismara\\Desktop\\papers\\remittances\\figures\\mock_profiles_WIDE.svg', bbox_inches = 'tight')
+fig.savefig('C:\\Users\\Andrea Vismara\\Desktop\\papers\\remittances\\figures\\mock_profiles_WIDE_neww.svg', bbox_inches = 'tight')
 plt.show(block = True)
 
 ######################################
@@ -335,7 +344,7 @@ plt.yticks(fontsize=16)
 ax.yaxis.set_major_formatter(mtick.PercentFormatter(1.0))
 
 fig.savefig(
-    'C:\\Users\\Andrea Vismara\\Desktop\\papers\\remittances\\figures\\diaspora_profiles_MEXICO_TALL.svg',
+    'C:\\Users\\Andrea Vismara\\Desktop\\papers\\remittances\\figures\\diaspora_profiles_MEXICO_TALL_neww.svg',
     bbox_inches='tight'
 )
 plt.show(block=True)

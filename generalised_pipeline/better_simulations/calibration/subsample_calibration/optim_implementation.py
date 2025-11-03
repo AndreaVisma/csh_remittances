@@ -13,13 +13,14 @@ pio.renderers.default = "browser"
 from pandas.tseries.offsets import MonthEnd
 import warnings
 warnings.filterwarnings("ignore", category=RuntimeWarning)
+warnings.filterwarnings("ignore", category=FutureWarning)
 from italy.simulation.func.goodness_of_fit import goodness_of_fit_results
 from utils import zero_values_before_first_positive_and_after_first_negative
 
 param_stay = 0
 
 ## Diaspora numbers
-diasporas_file = "C:\\Data\\migration\\bilateral_stocks\\interpolated_stocks_and_dem_factors_2207_TRAIN.pkl"
+diasporas_file = "C:\\Data\\migration\\bilateral_stocks\\interpolated_stocks_and_dem_factors_2210.pkl"
 df = pd.read_pickle(diasporas_file)
 df = df.dropna()
 df['year'] = df.date.dt.year
@@ -227,7 +228,7 @@ def check_params_combo_faster(df_countries, height, shape, shift, rem_pct, plot 
     df_countries['rem_amount'] = rem_pct * df_countries['gdp'] / 12
 
     df_countries['theta'] = constant + (param_nta * (df_countries['nta'])) \
-                    + (param_asy * df_countries['asymmetry']) + (param_gdp * df_countries['gdp_diff_norm']) \
+                    + (param_asy * df_countries['asymmetry']) + (param_gdp * df_countries['relative_diff']) \
                     + (df_countries['tot_score'])
     df_countries['probability'] = 1 / (1 + np.exp(-df_countries["theta"]))
     df_countries.loc[df_countries.nta == 0, 'probability'] = 0
@@ -250,7 +251,7 @@ def check_params_combo_faster(df_countries, height, shape, shift, rem_pct, plot 
 import time
 
 df_countries = get_df_countries(df_sampled)
-params = [2.5688294072397375, -9.9258425978672, 8.637134501037425,
+params = [2.5688294072397375, -9.9258425978672, -8.637134501037425,
             0.2337965838718275, 0.272087461937716,-0.7457719761289481,
             0.21375934475668515, 0.13041116247195136]
 param_nta, param_asy, param_gdp, height, shape, shift, constant, rem_pct = params
@@ -272,17 +273,21 @@ def error_function(params):
     return res['error'].sum()
 
 df_countries = get_df_countries(df_sampled)
-##################################
-params = [2.725302695640765, -9.769960496731258, 8.310039749519659,
-            0.1788188275520765, 0.21924650014050806,-0.7500114294211869,
-            0.3856959277016759, 0.1333609093157307]
+params = [np.float64(0.8099777130329276),
+ np.float64(-5.063063046802301),
+ np.float64(0.33406191022068343),
+ np.float64(0.13002293544007684),
+ np.float64(0.07314235907515484),
+ np.float64(-0.7600977534803358),
+ np.float64(0.1857387635258146),
+ np.float64(0.1010346025271759)]
 param_nta, param_asy, param_gdp, height, shape, shift, constant, rem_pct = params
 results = check_params_combo_faster(df_countries, height, shape, shift, rem_pct, plot = True)
 
 res = minimize(
     lambda x: error_function(x),
     x0 =params,
-    bounds= [(0.5,3),(-12,-5),(5,13),(-0.5,1),(-0.5,1),(-2,2),(-2,2), (0.1, 0.2)],
+    bounds= [(0.5,3),(-12,-5),(0,1),(-0.5,1),(-0.5,1),(-2,2),(-2,2), (0.1, 0.2)],
     method="L-BFGS-B",
     options={'disp': True}
 )
@@ -309,7 +314,7 @@ def return_train_test_result(params):
     df_countries['rem_amount'] = rem_pct * df_countries['gdp'] / 12
 
     df_countries['theta'] = constant + (param_nta * (df_countries['nta'])) \
-                            + (param_asy * df_countries['asymmetry']) + (param_gdp * df_countries['gdp_diff_norm']) \
+                            + (param_asy * df_countries['asymmetry']) + (param_gdp * df_countries['relative_diff']) \
                             + (df_countries['tot_score'])
     df_countries['probability'] = 1 / (1 + np.exp(-df_countries["theta"]))
     df_countries.loc[df_countries.nta == 0, 'probability'] == 0
