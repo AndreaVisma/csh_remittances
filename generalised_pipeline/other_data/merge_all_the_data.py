@@ -16,6 +16,7 @@ from scipy.interpolate import CubicSpline
 from tqdm import tqdm
 import warnings
 warnings.filterwarnings("ignore", category=RuntimeWarning)
+warnings.simplefilter(action='ignore', category=FutureWarning)
 from italy.simulation.func.goodness_of_fit import (plot_remittances_senders, plot_all_results_log,
                                                    goodness_of_fit_results, plot_all_results_lin,
                                                    plot_correlation_senders_remittances, plot_correlation_remittances)
@@ -120,7 +121,7 @@ un_pairs = plot_asy_country("Egypt")
 
 ## gdp differential
 df_gdp = (pd.read_pickle("c:\\data\\economic\\gdp\\annual_gdp_deltas.pkl"))
-df_gdp['gdp_diff_norm'] = 2* (df_gdp['gdp_diff'] - df_gdp['gdp_diff'].min()) / (df_gdp['gdp_diff'].max() - df_gdp['gdp_diff'].min()) - 1
+df_gdp['gdp_diff_norm'] = 2 * (df_gdp['gdp_diff'] - df_gdp['gdp_diff'].min()) / (df_gdp['gdp_diff'].max() - df_gdp['gdp_diff'].min()) - 1
 df_gdp = df_gdp[["date", "origin", "destination", "gdp_diff_norm", "relative_diff"]]
 df_gdp['date'] = pd.to_datetime(df_gdp['date'])
 
