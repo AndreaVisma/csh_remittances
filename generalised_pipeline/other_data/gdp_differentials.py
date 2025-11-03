@@ -9,6 +9,8 @@ import plotly.graph_objects as go
 pio.renderers.default = "browser"
 from pandas.tseries.offsets import MonthEnd
 from scipy.interpolate import CubicSpline
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
 
 
 df_gdp = pd.read_excel("c:\\data\\economic\\gdp\\annual_gdp_per_capita_clean.xlsx")
@@ -59,7 +61,7 @@ for country_dest in pbar:
     for country_or in df_gdp.country.unique():
         df_or = df_gdp[df_gdp.country == country_or]
         merged = df_dest.merge(df_or, on = 'year', how = 'outer', suffixes=('_dest', '_or'))
-        merged['gdp_diff'] = merged["gdp_dest"] - merged["gdp_or"]
+        merged['gdp_diff'] = merged["gdp_or"] - merged["gdp_dest"]
         dfs.append(merged)
 
 df_pairs = pd.concat(dfs)
@@ -67,9 +69,18 @@ df_pairs.rename(columns = {"country_dest" : "destination", "country_or" : "origi
 df_pairs = df_pairs[df_pairs.destination != df_pairs.origin]
 df_pairs['date'] = pd.to_datetime(df_pairs['year'], format="%Y") + MonthEnd(0)
 # df_pairs.drop(columns = ["gdp_or", "gdp_dest", "year"], inplace = True)
-df_pairs["relative_diff"] = (df_pairs["gdp_or"] - df_pairs["gdp_dest"]) / df_pairs["gdp_or"]
+df_pairs["dest_bigger_or"] = np.where(df_pairs["gdp_dest"] >= df_pairs["gdp_or"], True, False)
+df_pairs.loc[df_pairs["dest_bigger_or"] == True, "relative_diff"] = ((df_pairs.loc[df_pairs["dest_bigger_or"] == True, "gdp_dest"]
+                                                                     - df_pairs.loc[df_pairs["dest_bigger_or"] == True, "gdp_or"])
+                                                                     / df_pairs.loc[df_pairs["dest_bigger_or"] == True, "gdp_dest"])
+df_pairs.loc[df_pairs["dest_bigger_or"] == False, "relative_diff"] = - ((df_pairs.loc[df_pairs["dest_bigger_or"] == False, "gdp_or"]
+                                                                     - df_pairs.loc[df_pairs["dest_bigger_or"] == False, "gdp_dest"])
+                                                                     / df_pairs.loc[df_pairs["dest_bigger_or"] == False, "gdp_or"])
 df_pairs = df_pairs[df_pairs.date.dt.year > 2009]
 df_pairs.ffill(inplace=True)
+
+fig = px.histogram(df_pairs, x="relative_diff", nbins = 100)
+fig.show()
 
 def min_max_normalize(series):
     return series / abs(series.min())
