@@ -58,8 +58,8 @@ def check_pair_coverage(df):
 
     return pd.DataFrame(results)
 
-report = check_pair_coverage(df)
-print(report[~report['is_complete']])  # Only incomplete pairs
+# report = check_pair_coverage(df)
+# print(report[~report['is_complete']])  # Only incomplete pairs
 
 ## family asymmetry
 asymmetry_file = "C:\\Data\\migration\\bilateral_stocks\\pyramid_asymmetry_beginning_of_the_year.pkl"
@@ -99,24 +99,24 @@ for dest_country in pbar:
 
 result_asy = pd.concat(list_df_months)
 result_asy.loc[result_asy.asymmetry < 0, 'asymmetry'] = 0
+#
+# report_asy = check_pair_coverage(result_asy)
+# print(report_asy[~report_asy['is_complete']])  # Only incomplete pairs
 
-report_asy = check_pair_coverage(result_asy)
-print(report_asy[~report_asy['is_complete']])  # Only incomplete pairs
-
-def plot_asy_country(country):
-    df_country = result_asy[result_asy.origin == country].groupby('date')[['asymmetry']].mean()
-    unique_pairs = (result_asy[result_asy.origin == country][['date', 'origin', 'destination']].
-                    drop_duplicates())#.groupby('date').size())
-    # print(unique_pairs)
-    fig, ax = plt.subplots(figsize=(9, 6))
-    df_country.plot(ax = ax)
-    plt.grid(True)
-    plt.ylabel(f"Migrants from {country}")
-    plt.title(f"Total international migrants from {country}")
-    plt.legend()
-    plt.show(block=True)
-    return unique_pairs
-un_pairs = plot_asy_country("Egypt")
+# def plot_asy_country(country):
+#     df_country = result_asy[result_asy.origin == country].groupby('date')[['asymmetry']].mean()
+#     unique_pairs = (result_asy[result_asy.origin == country][['date', 'origin', 'destination']].
+#                     drop_duplicates())#.groupby('date').size())
+#     # print(unique_pairs)
+#     fig, ax = plt.subplots(figsize=(9, 6))
+#     df_country.plot(ax = ax)
+#     plt.grid(True)
+#     plt.ylabel(f"Migrants from {country}")
+#     plt.title(f"Total international migrants from {country}")
+#     plt.legend()
+#     plt.show(block=True)
+#     return unique_pairs
+# un_pairs = plot_asy_country("Egypt")
 
 
 ## gdp differential
@@ -164,8 +164,12 @@ result_gdp = pd.concat(list_df_months)
 result_gdp = result_gdp.sort_values(["origin", "destination", "date"])
 result_gdp['date'] = pd.to_datetime(result_gdp['date'])
 
-report_gdp = check_pair_coverage(result_gdp)
-print(report_gdp[~report_gdp['is_complete']])  # Only incomplete pairs
+# report_gdp = check_pair_coverage(result_gdp)
+# print(report_gdp[~report_gdp['is_complete']])  # Only incomplete pairs
+
+###
+df_gdp_origin = pd.read_excel("c:\\data\\economic\\gdp\\annual_gdp_per_capita_splined.xlsx")
+df_gdp_origin.rename(columns = {"destination" : "origin", "gdp" : "gdp_origin"}, inplace = True)
 
 ##nta accounts
 df_nta = pd.read_pickle("C:\\Data\\economic\\nta\\processed_nta.pkl")
@@ -184,52 +188,52 @@ df_asy_gdp = df_sum_with_asy.merge(result_gdp, on = ["date", "origin", "destinat
 nans_gdp = df_asy_gdp[(df_asy_gdp.gdp_diff_norm.isna()) & (~df_asy_gdp[["origin", "destination"]].duplicated())]
 nans_asy = df_asy_gdp[(df_asy_gdp.asymmetry.isna()) & (~df_asy_gdp[["origin", "destination"]].duplicated())]
 
-def find_missing_by_pair(df):
-    # Make sure 'date' is datetime
-    df['date'] = pd.to_datetime(df['date'])
-
-    # Prepare list to store results
-    records = []
-
-    # Group by origin-destination pair
-    grouped = df.groupby(['origin', 'destination'])
-
-    for (origin, destination), group in grouped:
-        group = group.sort_values('date')
-
-        # Identify missing asymmetry
-        missing_asym = group[group['asymmetry'].isna()]
-        if not missing_asym.empty:
-            records.append({
-                'origin': origin,
-                'destination': destination,
-                'variable': 'asymmetry',
-                'n_missing': len(missing_asym),
-                'first_missing': missing_asym['date'].min(),
-                'last_missing': missing_asym['date'].max(),
-                'first_seen': group['date'].min(),
-                'last_seen': group['date'].max()
-            })
-
-        # Identify missing gdp_diff_norm
-        missing_gdp = group[group['gdp_diff_norm'].isna()]
-        if not missing_gdp.empty:
-            records.append({
-                'origin': origin,
-                'destination': destination,
-                'variable': 'gdp_diff_norm',
-                'n_missing': len(missing_gdp),
-                'first_missing': missing_gdp['date'].min(),
-                'last_missing': missing_gdp['date'].max(),
-                'first_seen': group['date'].min(),
-                'last_seen': group['date'].max()
-            })
-
-    # Convert to DataFrame
-    return pd.DataFrame(records)
-
-missing_summary = find_missing_by_pair(df_asy_gdp)
-print(missing_summary.head())
+# def find_missing_by_pair(df):
+#     # Make sure 'date' is datetime
+#     df['date'] = pd.to_datetime(df['date'])
+#
+#     # Prepare list to store results
+#     records = []
+#
+#     # Group by origin-destination pair
+#     grouped = df.groupby(['origin', 'destination'])
+#
+#     for (origin, destination), group in grouped:
+#         group = group.sort_values('date')
+#
+#         # Identify missing asymmetry
+#         missing_asym = group[group['asymmetry'].isna()]
+#         if not missing_asym.empty:
+#             records.append({
+#                 'origin': origin,
+#                 'destination': destination,
+#                 'variable': 'asymmetry',
+#                 'n_missing': len(missing_asym),
+#                 'first_missing': missing_asym['date'].min(),
+#                 'last_missing': missing_asym['date'].max(),
+#                 'first_seen': group['date'].min(),
+#                 'last_seen': group['date'].max()
+#             })
+#
+#         # Identify missing gdp_diff_norm
+#         missing_gdp = group[group['gdp_diff_norm'].isna()]
+#         if not missing_gdp.empty:
+#             records.append({
+#                 'origin': origin,
+#                 'destination': destination,
+#                 'variable': 'gdp_diff_norm',
+#                 'n_missing': len(missing_gdp),
+#                 'first_missing': missing_gdp['date'].min(),
+#                 'last_missing': missing_gdp['date'].max(),
+#                 'first_seen': group['date'].min(),
+#                 'last_seen': group['date'].max()
+#             })
+#
+#     # Convert to DataFrame
+#     return pd.DataFrame(records)
+#
+# missing_summary = find_missing_by_pair(df_asy_gdp)
+# print(missing_summary.head())
 
 ################################
 #
@@ -262,6 +266,9 @@ df_all['mean_age'] = df_all['mean_age'].astype(int)
 df_nta = (df_nta.rename(columns = {'age' : 'mean_age', 'country' : 'destination'})
     [['destination', 'mean_age', 'nta']])
 df_all = df_all.merge(df_nta, on = ['destination', 'mean_age'], how = 'left')
+df_all = df_all.merge(df_gdp_origin, on = ["date", "origin"], how = "left")
+df_all["gdp_origin_norm"] = ((df_all["gdp_origin"]-df_all["gdp_origin"].min())
+                             /(df_all["gdp_origin"].max() - df_all["gdp_origin"].min()))
 
 df_all.to_pickle("C:\\Data\\migration\\bilateral_stocks\\interpolated_stocks_and_dem_factors_2210.pkl")
 
