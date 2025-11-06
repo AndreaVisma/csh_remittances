@@ -227,7 +227,7 @@ def check_params_combo_faster(df_countries, height, shape, shift, rem_pct, plot 
     df_countries['tot_score'].fillna(0, inplace = True)
     df_countries['rem_amount'] = rem_pct * df_countries['gdp'] / 12
 
-    df_countries['theta'] = constant + (param_nta * (df_countries['nta'])) \
+    df_countries['theta'] = constant + (param_nta * (df_countries['nta'])) + (param_inc * (df_countries["gdp_origin_norm"])) \
                     + (param_asy * df_countries['asymmetry']) + (param_gdp * df_countries['relative_diff']) \
                     + (df_countries['tot_score'])
     df_countries['probability'] = 1 / (1 + np.exp(-df_countries["theta"]))
@@ -245,27 +245,10 @@ def check_params_combo_faster(df_countries, height, shape, shift, rem_pct, plot 
 
     return remittance_per_period
 
-
-###############3
-# check what's faster
-import time
-
-df_countries = get_df_countries(df_sampled)
-params = [2.5688294072397375, -9.9258425978672, -8.637134501037425,
-            0.2337965838718275, 0.272087461937716,-0.7457719761289481,
-            0.21375934475668515, 0.13041116247195136]
-param_nta, param_asy, param_gdp, height, shape, shift, constant, rem_pct = params
-
-print(f"================================")
-start = time.time()
-results_new = check_params_combo_faster(df_countries, height, shape, shift, rem_pct, plot = True)
-end = time.time()
-print(f"running time new function: {end - start}")
-
 ################
 def error_function(params):
     global param_nta, param_asy, param_gdp, height, shape, shift, constant
-    param_nta, param_asy, param_gdp, height, shape, shift, constant, rem_pct = params
+    param_nta, param_asy, param_gdp, param_inc, height, shape, shift, constant, rem_pct = params
 
     res = check_params_combo_faster(df_countries, height, shape, shift, rem_pct, plot=False)
     res['error'] = (res['sim_remittances'] - res['remittances']) / 1e9
@@ -273,26 +256,29 @@ def error_function(params):
     return res['error'].sum()
 
 df_countries = get_df_countries(df_sampled)
-params = [np.float64(0.8099777130329276),
- np.float64(-5.063063046802301),
- np.float64(0.33406191022068343),
- np.float64(0.13002293544007684),
- np.float64(0.07314235907515484),
- np.float64(-0.7600977534803358),
- np.float64(0.1857387635258146),
- np.float64(0.1010346025271759)]
-param_nta, param_asy, param_gdp, height, shape, shift, constant, rem_pct = params
+
+params = [np.float64(1.2),
+ np.float64(-5),
+ np.float64(0.6),
+ np.float64(-3),
+ np.float64(0.15),
+ np.float64(0.23),
+ np.float64(-1),
+ np.float64(0.1),
+ np.float64(0.2)]
+
+param_nta, param_asy, param_gdp, param_inc, height, shape, shift, constant, rem_pct = params
 results = check_params_combo_faster(df_countries, height, shape, shift, rem_pct, plot = True)
 
 res = minimize(
     lambda x: error_function(x),
-    x0 =params,
-    bounds= [(0.5,3),(-12,-5),(0,1),(-0.5,1),(-0.5,1),(-2,2),(-2,2), (0.1, 0.2)],
+    x0 = params,
+    bounds= [(0.1,3),(-10,-4),(0,5),(-4, 0),(-0.5,1),(-0.5,1),(-2,2),(-2,2), (0.12, 0.3)],
     method="L-BFGS-B",
     options={'disp': True}
 )
 
-dict_best = dict(zip(['nta', 'asy', 'gdp', 'height', 'shape', 'shift', 'constant', 'rem_pct'], res.x))
+dict_best = dict(zip(['nta', 'asy', 'gdp', 'income_origin', 'height', 'shape', 'shift', 'constant', 'rem_pct'], res.x))
 for k, v in dict_best.items():
     print(f"{k}:{v}")
 print("Predicted error:", res.fun)
@@ -397,7 +383,7 @@ def plot_train_test(df_test):
 
 params = [x for x in res.x]
 # params = [1.89, -9.466, 7, 0.27, 0.39, -2, -0.84, 0.11]
-param_nta, param_asy, param_gdp, height, shape, shift, constant, rem_pct = params
+param_nta, param_asy, param_gdp, param_inc, height, shape, shift, constant, rem_pct = params
 res = check_params_combo_faster(get_df_countries(df_not_sampled), height, shape, shift, rem_pct, plot=True)
 
 df_test = return_train_test_result(params)
