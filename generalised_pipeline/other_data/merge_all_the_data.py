@@ -267,8 +267,13 @@ df_nta = (df_nta.rename(columns = {'age' : 'mean_age', 'country' : 'destination'
     [['destination', 'mean_age', 'nta']])
 df_all = df_all.merge(df_nta, on = ['destination', 'mean_age'], how = 'left')
 df_all = df_all.merge(df_gdp_origin, on = ["date", "origin"], how = "left")
-df_all["gdp_origin_norm"] = ((df_all["gdp_origin"]-df_all["gdp_origin"].min())
-                             /(df_all["gdp_origin"].max() - df_all["gdp_origin"].min()))
+
+for year in tqdm(df_all.date.dt.year.unique()):
+
+    df_all.loc[df_all.date.dt.year == year, "gdp_origin_norm"] = ((df_all.loc[df_all.date.dt.year == year, "gdp_origin"].apply(np.log) -
+                                                                   df_all.loc[df_all.date.dt.year == year, "gdp_origin"].apply(np.log).min())
+                                 / (df_all.loc[df_all.date.dt.year == year, "gdp_origin"].apply(np.log).max()
+                                   - df_all.loc[df_all.date.dt.year == year, "gdp_origin"].apply(np.log).min()))
 
 df_all.to_pickle("C:\\Data\\migration\\bilateral_stocks\\interpolated_stocks_and_dem_factors_2210.pkl")
 

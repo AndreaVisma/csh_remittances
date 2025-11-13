@@ -35,18 +35,71 @@ df = df.merge(df_gdp, on=['destination', 'date'], how='left')
 ## disasters
 emdat = pd.read_pickle("C:\\Data\\my_datasets\\monthly_disasters_with_lags_NEW.pkl")
 
+######################
+# #
+# def weighted_mean(series, weights):
+#     w = weights
+#     if w.sum() == 0:
+#         return np.nan
+#     return np.average(series, weights=w)
+#
+# # Apply to all desired columns
+# weighted_cols = ["gdp_origin_norm", "relative_diff", "asymmetry", "nta", "tot_score"]
+#
+# df_weighted = (
+#     df.groupby("origin", group_keys=False)
+#       .apply(lambda g: pd.Series({
+#           col: weighted_mean(g[col], g["n_people"]) for col in weighted_cols
+#       }))
+#       .reset_index()
+# )
+# df_weighted["total_people"] = df.groupby("origin")["n_people"].sum().values
+# df_weighted["theta"] = (
+#     constant
+#     + param_nta * df_weighted["nta"]
+#     + param_inc * df_weighted["gdp_origin_norm"]
+#     + param_asy * df_weighted["asymmetry"]
+#     + param_gdp * df_weighted["relative_diff"]
+# )
+#
+# # Add the logistic transformation
+# df_weighted["probability"] = 1 / (1 + np.exp(-df_weighted["theta"]))
+# df_weighted["senders"] = df_weighted["probability"] * df_weighted["total_people"]
+#
+# data_folder = "c:\\git-projects\\csh_remittances\\data_downloads\\data\\"
+# #load inflow of remittances
+# df_in = pd.read_excel(data_folder + "inward-remittance-flows-2024.xlsx",
+#                       nrows = 214, usecols="A:Y")
+# df_in.rename(columns = {"Remittance inflows (US$ million)": "country"}, inplace=True)
+# df_in = pd.melt(df_in, id_vars=['country'], value_vars=df_in.columns.tolist()[1:])
+# df_in.rename(columns = {"variable": "year", "value" : "inflow"}, inplace=True)
+# df_in.year = df_in.year.astype('int')
+# df_in = df_in[(df_in.year > 2009) & (df_in.year < 2020)]
+# df_in['inflow'] /= 1_000
+# df_in = df_in[["country", "inflow"]].groupby('country').sum().reset_index()
+# df_in.country = df_in.country.str.strip().map(dict_names)
+#
+# df_weighted = df_weighted.merge(df_in, left_on = "origin", right_on = "country", how = "left")
+# df_weighted = df_weighted.sort_values("senders")
+# df_weighted["senders"] /= 1_000
+#
+
+
+######################
 ####parameters
 
-params = [np.float64(1.1419923789286681),
- np.float64(-5.263671004897209),
- np.float64(0.5683594794155823),
- np.float64(-3.0),
- np.float64(0.11572276929321759),
- np.float64(0.2706053347359994),
- np.float64(-1.0),
- np.float64(-0.01074182205082303),
- np.float64(0.1957812640316911)]
+params = [np.float64(1.1),
+ np.float64(-4.654337290049305),
+ np.float64(2.836343162643659),
+ np.float64(-3.6797532393725803),
+ np.float64(0.15481668467510104),
+ np.float64(0.18889740060639804),
+ np.float64(-0.9813255797340747),
+ np.float64(0.02),
+ np.float64(0.18)]
+
 param_nta, param_asy, param_gdp, param_inc, height, shape, shift, constant, rem_pct = params
+
 
 ######## functions
 def calculate_tot_score(emdat_ita, height, shape, shift):
@@ -56,7 +109,8 @@ def calculate_tot_score(emdat_ita, height, shape, shift):
                                [height + shape * np.sin((np.pi / 6) * (x+shift)) for x in range(1, 13)])))
     for x in range(12):
         emdat_ita[f"tot_{x}"] = emdat_ita[[f"eq_{x}",f"dr_{x}",f"fl_{x}",f"st_{x}"]].sum(axis =1) * dict_scores[x]
-    emdat_ita["tot_score"] = emdat_ita[[x for x in emdat_ita.columns if "tot" in x]].sum(axis =1)
+    tot_cols = [f"tot_{x}" for x in range(12)]
+    emdat_ita["tot_score"] = emdat_ita[tot_cols].sum(axis=1)
     return emdat_ita[['date', 'origin', 'tot_score']]
 
 def calculate_tot_score_specific(emdat_ita, height, shape, shift, disaster):
@@ -69,7 +123,7 @@ def calculate_tot_score_specific(emdat_ita, height, shape, shift, disaster):
     disasters_dict = dict(zip(["Earthquake", "Flood", "Storm", "Drought"], ["eq", "fl", "st", "dr"]))
     dis_name = disasters_dict[disaster]
 
-    emdat_ita[f"{dis_name}_score"] = emdat_ita[[x for x in emdat_ita.columns if dis_name in x]].sum(axis =1)
+    emdat_ita[f"{dis_name}_score"] = emdat_ita[[f"{dis_name}_{x}" for x in range(12)]].sum(axis =1)
     return emdat_ita[['date', 'origin', f"{dis_name}_score"]]
 
 def simulate_remittances(df_countries, height, shape, shift, rem_pct, disasters = True):
@@ -79,6 +133,7 @@ def simulate_remittances(df_countries, height, shape, shift, rem_pct, disasters 
         emdat_ita = calculate_tot_score(emdat_ita, height, shape, shift)
         try:
             df_countries.drop(columns = 'tot_score', inplace = True)
+            print("couldn't drop columns tot_score")
         except:
             pass
         df_countries = df_countries.merge(emdat_ita, on=['origin', 'date'], how='left')
@@ -173,21 +228,21 @@ print("simulating NO disasters ...")
 df_results = simulate_remittances(df, height, shape, shift, rem_pct, disasters = False)
 df_results.to_parquet("C:\\git-projects\\csh_remittances\\general\\results_plots\\all_flows_simulations_without_disasters_NEW.parquet")
 # # DROUGHT
-# print("simulating droughts ...")
-# df_results = simulate_remittances_specific_disaster(df, height, shape, shift, rem_pct, disaster="Drought")
-# df_results.to_parquet("C:\\git-projects\\csh_remittances\\general\\results_plots\\NEW_drought.parquet")
-# # FLOOD
-# print("simulating floods ...")
-# df_results = simulate_remittances_specific_disaster(df, height, shape, shift, rem_pct, disaster="Flood")
-# df_results.to_parquet("C:\\git-projects\\csh_remittances\\general\\results_plots\\NEW_floods.parquet")
-# # WITHOUT
-# print("simulating storms ...")
-# df_results = simulate_remittances_specific_disaster(df, height, shape, shift, rem_pct, disaster="Storm")
-# df_results.to_parquet("C:\\git-projects\\csh_remittances\\general\\results_plots\\NEW_storms.parquet")
-# # WITHOUT
-# print("simulating earthquakes ...")
-# df_results = simulate_remittances_specific_disaster(df, height, shape, shift, rem_pct, disaster="Earthquake")
-# df_results.to_parquet("C:\\git-projects\\csh_remittances\\general\\results_plots\\NEW_earthquakes.parquet")
+print("simulating droughts ...")
+df_results = simulate_remittances_specific_disaster(df, height, shape, shift, rem_pct, disaster="Drought")
+df_results.to_parquet("C:\\git-projects\\csh_remittances\\general\\results_plots\\NEW_drought.parquet")
+# FLOOD
+print("simulating floods ...")
+df_results = simulate_remittances_specific_disaster(df, height, shape, shift, rem_pct, disaster="Flood")
+df_results.to_parquet("C:\\git-projects\\csh_remittances\\general\\results_plots\\NEW_floods.parquet")
+# WITHOUT
+print("simulating storms ...")
+df_results = simulate_remittances_specific_disaster(df, height, shape, shift, rem_pct, disaster="Storm")
+df_results.to_parquet("C:\\git-projects\\csh_remittances\\general\\results_plots\\NEW_storms.parquet")
+# WITHOUT
+print("simulating earthquakes ...")
+df_results = simulate_remittances_specific_disaster(df, height, shape, shift, rem_pct, disaster="Earthquake")
+df_results.to_parquet("C:\\git-projects\\csh_remittances\\general\\results_plots\\NEW_earthquakes.parquet")
 
 #################
 # plot
@@ -196,40 +251,52 @@ df_results.to_parquet("C:\\git-projects\\csh_remittances\\general\\results_plots
 df_with = pd.read_parquet("C:\\git-projects\\csh_remittances\\general\\results_plots\\all_flows_simulations_with_disasters_NEW.parquet")
 df_without = pd.read_parquet("C:\\git-projects\\csh_remittances\\general\\results_plots\\all_flows_simulations_without_disasters_NEW.parquet")
 
+print("tot remittances (trillions):")
+print(np.round(df_with.sim_remittances.sum() / 1e12, 3))
+
+no_dis_rem = df_without.sim_remittances.sum()
+all_rem = df_with.sim_remittances.sum()
+diff = all_rem - no_dis_rem
+pct_diff = 100 * diff / all_rem
+
+print("tot disaster remittances (billions):")
+print(np.round(diff / 1e9, 3))
+print("in percentage:")
+print(round(pct_diff, 2))
 ##########
 # save df_with aggregate
-df_all = df_with[["date", "origin", "destination", "sim_remittances"]].merge(
-    df_without[["date", "origin", "destination", "sim_remittances"]],
-    on = ["date", "origin", "destination"], suffixes = ("_with", "_without"))
-df_all['year'] = df_all.date.dt.year
-df_all_group = (df_all[["year", "origin", "destination", "sim_remittances_with", "sim_remittances_without"]].
-                groupby(["year", "origin", "destination"]).sum().reset_index())
-df_all_group.shape
-df_all_group.rename(columns = {'origin' : 'receiver', 'destination' : 'sender'}, inplace = True)
-df_results.to_csv("C:\\git-projects\\csh_remittances\\general\\results_plots\\yearly_flows.csv", index = False)
+# df_all = df_with[["date", "origin", "destination", "sim_remittances"]].merge(
+#     df_without[["date", "origin", "destination", "sim_remittances"]],
+#     on = ["date", "origin", "destination"], suffixes = ("_with", "_without"))
+# df_all['year'] = df_all.date.dt.year
+# df_all_group = (df_all[["year", "origin", "destination", "sim_remittances_with", "sim_remittances_without"]].
+#                 groupby(["year", "origin", "destination"]).sum().reset_index())
+# df_all_group.shape
+# df_all_group.rename(columns = {'origin' : 'receiver', 'destination' : 'sender'}, inplace = True)
+# df_results.to_csv("C:\\git-projects\\csh_remittances\\general\\results_plots\\yearly_flows.csv", index = False)
 
 ##########
-
+#
 df_with['quarter'] = df_with.date.dt.to_period('Q').dt.to_timestamp()
 df_without['quarter'] = df_without.date.dt.to_period('Q').dt.to_timestamp()
-
-df_with_quarter = df_with[['quarter', 'sim_remittances']].groupby("quarter").sum().reset_index()
-df_with_quarter['sim_remittances'] /= 1e9
-df_with_quarter.set_index('quarter', inplace = True)
-df_without_quarter = df_without[['quarter', 'sim_remittances']].groupby("quarter").sum().reset_index()
-df_without_quarter['sim_remittances'] /= 1e9
-df_without_quarter.set_index('quarter', inplace = True)
-
-fig, ax = plt.subplots(figsize = (9,6))
-
-plt.plot(df_with_quarter.iloc[:-1], label = "With disasters")
-plt.plot(df_without_quarter[:-1], label = "Without disasters")
-plt.legend()
-plt.grid(True)
-plt.show(block = True)
-
-## yearly
-
+#
+# df_with_quarter = df_with[['quarter', 'sim_remittances']].groupby("quarter").sum().reset_index()
+# df_with_quarter['sim_remittances'] /= 1e9
+# df_with_quarter.set_index('quarter', inplace = True)
+# df_without_quarter = df_without[['quarter', 'sim_remittances']].groupby("quarter").sum().reset_index()
+# df_without_quarter['sim_remittances'] /= 1e9
+# df_without_quarter.set_index('quarter', inplace = True)
+#
+# fig, ax = plt.subplots(figsize = (9,6))
+#
+# plt.plot(df_with_quarter.iloc[:-1], label = "With disasters")
+# plt.plot(df_without_quarter[:-1], label = "Without disasters")
+# plt.legend()
+# plt.grid(True)
+# plt.show(block = True)
+#
+# ## yearly
+#
 df_with['year'] = df_with.date.dt.year
 df_without['year'] = df_without.date.dt.year
 
@@ -242,7 +309,7 @@ df_without_period.set_index('year', inplace = True)
 
 ####### world bank data
 import os
-data_folder = os.getcwd() + "\\data_downloads\\data\\"
+data_folder = "c:\\git-projects\\csh_remittances\\data_downloads\\data\\"
 #load inflow of remittances
 df_in = pd.read_excel(data_folder + "inward-remittance-flows-2024.xlsx",
                       nrows = 214, usecols="A:Y")
@@ -282,31 +349,31 @@ plt.show(block = True)
 #############################
 # Plots by precise date
 ##############################
-
-
-df_with_date = df_with[['date', 'sim_remittances']].groupby("date").sum().reset_index()
-df_with_date['sim_remittances'] /= 1e9
-df_with_date.set_index('date', inplace = True)
-df_without_date = df_without[['date', 'sim_remittances']].groupby("date").sum().reset_index()
-df_without_date['sim_remittances'] /= 1e9
-df_without_date.set_index('date', inplace = True)
-
-df_all_group = df_with_date.merge(df_without_date, on = "date", suffixes = ("_with", "_without"))
-df_all_group['difference'] = df_all_group['sim_remittances_with'] - df_all_group['sim_remittances_without']
-
-fig, ax = plt.subplots(figsize = (9,6))
-
-plt.plot(df_with_date.iloc[:-1], label = "With disasters")
-plt.plot(df_without_date[:-1], label = "Without disasters")
-plt.legend()
-plt.grid(True)
-plt.show(block = True)
-
-fig, ax = plt.subplots(figsize = (9,6))
-
-plt.plot(df_all_group['difference'])
-plt.grid(True)
-plt.show(block = True)
+#
+#
+# df_with_date = df_with[['date', 'sim_remittances']].groupby("date").sum().reset_index()
+# df_with_date['sim_remittances'] /= 1e9
+# df_with_date.set_index('date', inplace = True)
+# df_without_date = df_without[['date', 'sim_remittances']].groupby("date").sum().reset_index()
+# df_without_date['sim_remittances'] /= 1e9
+# df_without_date.set_index('date', inplace = True)
+#
+# df_all_group = df_with_date.merge(df_without_date, on = "date", suffixes = ("_with", "_without"))
+# df_all_group['difference'] = df_all_group['sim_remittances_with'] - df_all_group['sim_remittances_without']
+#
+# fig, ax = plt.subplots(figsize = (9,6))
+#
+# plt.plot(df_with_date.iloc[:-1], label = "With disasters")
+# plt.plot(df_without_date[:-1], label = "Without disasters")
+# plt.legend()
+# plt.grid(True)
+# plt.show(block = True)
+#
+# fig, ax = plt.subplots(figsize = (9,6))
+#
+# plt.plot(df_all_group['difference'])
+# plt.grid(True)
+# plt.show(block = True)
 
 ############################
 # Analysis
@@ -320,7 +387,7 @@ df_in_country.rename(columns = {"variable": "year", "value" : "inflow"}, inplace
 df_in_country.year = df_in_country.year.astype('int')
 df_in_country = df_in_country[(df_in_country.year > 2009) & (df_in_country.year < 2020)]
 df_in_country['inflow'] /= 1_000
-df_in_country = df_in_country[["country", "inflow"]].groupby('country').sum().reset_index()
+df_in_country = df_in_country[["country", "inflow", 'year']].groupby(['country', 'year']).sum().reset_index()
 df_in_country["country"] = df_in_country.country.str.strip().map(dict_names)
 
 # which countries got the most because of disasters
@@ -330,13 +397,49 @@ df_all = df_with[["date", "quarter", "origin", "destination", "sim_remittances"]
 df_all['sim_remittances_without'] /= 1e9
 df_all['sim_remittances_with'] /= 1e9
 
-df_by_country_dest = (df_all[["origin", "sim_remittances_with", "sim_remittances_without"]]
-                      .groupby('origin').sum().reset_index())
+df_by_country_dest = df_with[["origin", "year", "sim_remittances"]].groupby(["origin", "year"]).sum().reset_index()
+df_by_country_dest['sim_remittances'] /= 1e9
+df_by_country_dest_nodis = df_without[["origin", "year", "sim_remittances"]].groupby(["origin", "year"]).sum().reset_index()
+df_by_country_dest_nodis['sim_remittances'] /= 1e9
+df_by_country_dest = df_by_country_dest.merge(df_by_country_dest_nodis, on = ['origin', 'year'], suffixes = ("_with", "_without"))
+# df_by_country_dest = (df_all[["origin", "sim_remittances_with", "sim_remittances_without"]]
+#                       .groupby('origin').sum().reset_index())
 df_by_country_dest.rename(columns = {'origin' : 'country'}, inplace = True)
-df_by_country_dest = df_by_country_dest.merge(df_in_country, on = 'country', how = 'left')
+df_by_country_dest = df_by_country_dest.merge(df_in_country, on = ['country', 'year'], how = 'left')
 df_by_country_dest['difference'] = df_by_country_dest['sim_remittances_with'] - df_by_country_dest['sim_remittances_without']
 df_by_country_dest['pct_difference'] = round(100 * df_by_country_dest['difference'] / df_by_country_dest['sim_remittances_without'],2)
 df_by_country_dest.sort_values('inflow', ascending = False, inplace = True)
+
+###############################
+### optimise on the wb data
+#
+# def error_function_wb(params):
+#     global param_nta, param_asy, param_gdp, param_inc, height, shape, shift, constant, rem_pct
+#     param_nta, param_asy, param_gdp, param_inc, height, shape, shift, constant, rem_pct = params
+#
+#     res = simulate_remittances(df, height, shape, shift, rem_pct, disasters = True)
+#     res = (res[["origin", "sim_remittances"]].groupby('origin').sum().reset_index())
+#     res.rename(columns={'origin': 'country'}, inplace=True)
+#     res = res.merge(df_in_country, on='country', how='left')
+#     res['sim_remittances'] /= 1e9
+#     res['error'] = np.abs(res['sim_remittances'] - res['inflow'])
+#     res['error'] = np.square(res['error'])
+#     return res['error'].sum()
+#
+# result = minimize(
+#     lambda x: error_function_wb(x),
+#     x0 = params,
+#     # bounds= [(1,2),(-4,-2),(0.5,2),(-4, -1),(-0.05,0.2),(-0.1,0.25),(-2,2),(-0.2,0.2), (0.16, 0.25)],
+#     method="L-BFGS-B",
+#     options={'disp': True}
+# )
+#
+# dict_best = dict(zip(['nta', 'asy', 'gdp', 'income_origin', 'height', 'shape', 'shift', 'constant', 'rem_pct'], result.x))
+# for k, v in dict_best.items():
+#     print(f"{k}:{v}")
+# print("Predicted error:", result.fun)
+###############################
+
 
 from tabulate import tabulate
 print(tabulate(df_by_country_dest.head(10), headers='keys', tablefmt='pretty'))
@@ -345,8 +448,8 @@ from sklearn.linear_model import LinearRegression
 
 # Filter out non-positive values for log-log plot
 df_filtered = df_by_country_dest[
-    (df_by_country_dest['inflow'] > 1) &
-    (df_by_country_dest['sim_remittances_with'] > 1)
+    (df_by_country_dest['inflow'] > 0.05) &
+    (df_by_country_dest['sim_remittances_with'] > 0.05)
 ]
 
 # Log-transform data
@@ -473,9 +576,9 @@ def plot_one_receiver_senders(country):
     fig.show()
 
 # plot_one_receiver_senders("United Kingdom")
-plot_one_receiver_senders("Mexico")
-plot_one_receiver_senders("Philippines")
-plot_one_receiver_senders("China")
-plot_one_receiver_senders("India")
-plot_one_receiver_senders("Nigeria")
-plot_one_receiver_senders("France")
+# plot_one_receiver_senders("Mexico")
+# plot_one_receiver_senders("Philippines")
+# plot_one_receiver_senders("China")
+# plot_one_receiver_senders("India")
+# plot_one_receiver_senders("Nigeria")
+# plot_one_receiver_senders("France")
