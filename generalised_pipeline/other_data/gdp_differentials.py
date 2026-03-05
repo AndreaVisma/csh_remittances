@@ -15,6 +15,8 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 
 df_gdp = pd.read_excel("c:\\data\\economic\\gdp\\annual_gdp_per_capita_clean.xlsx")
 df_gdp['date'] = pd.to_datetime(df_gdp['year'], format="%Y") + MonthEnd(0)
+df_gdp = df_gdp[(df_gdp.year >=2009) & (df_gdp.year <= 2020)]
+df_gdp.gdp.ffill(inplace = True)
 
 list_df_months = []
 pbar = tqdm(df_gdp.country.unique())
